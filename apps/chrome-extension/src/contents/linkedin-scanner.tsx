@@ -1,8 +1,14 @@
+import { sendToBackground } from "@plasmohq/messaging";
 import type { PlasmoCSConfig } from "plasmo";
 import { useEffect, useRef, useState } from "react";
 
+import type {
+  ScanJobRequestBody,
+  ScanJobResponseBody,
+} from "@/background/messages/scan-job";
 import { BadgeMount } from "@/components/badge-mount";
 import { RiskReportManager } from "@/components/risk-report-manager";
+import { updateBadge } from "@/lib/badge-updater";
 import {
   extractJobDataFromCard,
   extractJobDataFromPage,
@@ -12,7 +18,6 @@ import {
   isJobSearchPage,
 } from "@/lib/linkedin-dom";
 import type { JobData } from "@/lib/linkedin-dom/types";
-import { analyzeJobPosting } from "@/lib/local-rules";
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.linkedin.com/jobs/*"],
@@ -30,16 +35,79 @@ export default function LinkedInScanner() {
   const [processedJobs, setProcessedJobs] = useState<Set<string>>(new Set());
   const observerRef = useRef<MutationObserver | null>(null);
   const processedJobsRef = useRef<Set<string>>(new Set());
+  const badgeContainersRef = useRef<Map<string, HTMLElement>>(new Map());
 
   // Sync ref with state
   useEffect(() => {
     processedJobsRef.current = processedJobs;
   }, [processedJobs]);
 
+  // Set up listener for final result messages from background
+  useEffect(() => {
+    const handleFinalResult = (
+      message: any,
+      _sender: chrome.runtime.MessageSender,
+      sendResponse: (response?: any) => void
+    ) => {
+      if (message.type === "scam-detector:final-result") {
+        const { jobId, final, error } = message;
+        const badgeContainer = badgeContainersRef.current.get(jobId);
+
+        if (!badgeContainer) {
+          console.warn(
+            `[LinkedIn Scam Detector] No badge container found for jobId: ${jobId}`
+          );
+          sendResponse({ success: false, error: "Badge container not found" });
+          return false;
+        }
+
+        if (final) {
+          const { riskLevel, riskScore, flags, summary, source } = final;
+
+          // Update badge with final result
+          updateBadge(badgeContainer, riskLevel, riskScore);
+
+          // Store final result
+          badgeContainer.setAttribute(
+            "data-gemini-result",
+            JSON.stringify({
+              riskScore,
+              riskLevel,
+              flags,
+              summary,
+              source,
+            })
+          );
+
+          console.log("[LinkedIn Scam Detector] Final result:", {
+            jobId,
+            riskLevel,
+            riskScore,
+            source,
+          });
+        }
+
+        if (error) {
+          console.error("[LinkedIn Scam Detector] Analysis error:", error);
+        }
+
+        sendResponse({ success: true });
+        return true; // Indicates we will send response asynchronously
+      }
+      return false;
+    };
+
+    chrome.runtime.onMessage.addListener(handleFinalResult);
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleFinalResult);
+    };
+  }, []);
+
   /**
    * Process a single job element
    */
-  const processJobElement = (jobElement: HTMLElement) => {
+  const processJobElement = async (jobElement: HTMLElement) => {
     try {
       // Extract job data
       const jobData: JobData | null = isJobPostingPage()
@@ -61,15 +129,10 @@ export default function LinkedInScanner() {
       // Mark as processed
       setProcessedJobs((prev) => new Set(prev).add(jobId));
 
-      // Run local rules engine for instant analysis
-      const localResult = analyzeJobPosting({
-        description: jobData.description || "",
-        title: jobData.title,
-        company: jobData.company || "",
-        salary: jobData.salary,
-      });
+      // Get job URL
+      const jobUrl = jobData.url || window.location.href;
 
-      // Inject badge container
+      // Inject badge container with loading state
       const badgeContainer = injectBadgeContainer(jobElement, jobId);
       if (!badgeContainer) {
         console.warn(
@@ -78,31 +141,75 @@ export default function LinkedInScanner() {
         return;
       }
 
-      // Store job data and analysis result in the badge container
-      // This will be used by the badge component (to be created in Task 5)
+      // Store badge container reference
+      badgeContainersRef.current.set(jobId, badgeContainer);
+
+      // Initialize badge container with loading state
       badgeContainer.setAttribute("data-job-id", jobId);
-      badgeContainer.setAttribute("data-risk-level", localResult.riskLevel);
-      badgeContainer.setAttribute(
-        "data-risk-score",
-        String(localResult.riskScore)
-      );
+      badgeContainer.setAttribute("data-risk-level", "loading");
       badgeContainer.setAttribute("data-job-data", JSON.stringify(jobData));
-      badgeContainer.setAttribute(
-        "data-local-result",
-        JSON.stringify(localResult)
-      );
+      badgeContainer.setAttribute("data-scam-detector", "true");
 
-      // Log for debugging (will be removed in production)
-      console.log("[LinkedIn Scam Detector] Processed job:", {
+      // Trigger badge mount (will show loading state)
+      const event = new CustomEvent("scam-detector:badge-update");
+      document.dispatchEvent(event);
+
+      // Send job data to background worker for analysis
+      const requestBody: ScanJobRequestBody = {
+        jobData,
+        jobUrl,
         jobId,
-        title: jobData.title,
-        riskLevel: localResult.riskLevel,
-        riskScore: localResult.riskScore,
-        flags: localResult.flags.length,
-      });
+      };
 
-      // TODO: In Task 7, we'll send this to background worker for Gemini analysis
-      // and update the badge when complete
+      // Send message and handle preliminary response
+      sendToBackground<ScanJobRequestBody, ScanJobResponseBody>({
+        name: "scan-job",
+        body: requestBody,
+      })
+        .then((response) => {
+          if (!response) return;
+
+          // Handle preliminary result (local rules)
+          if (response.preliminary) {
+            const { riskLevel, riskScore, flags } = response.preliminary;
+
+            // Update badge with preliminary result
+            updateBadge(badgeContainer, riskLevel, riskScore);
+
+            // Store preliminary result
+            badgeContainer.setAttribute(
+              "data-local-result",
+              JSON.stringify({
+                riskScore,
+                riskLevel,
+                flags,
+              })
+            );
+
+            console.log("[LinkedIn Scam Detector] Preliminary result:", {
+              jobId,
+              riskLevel,
+              riskScore,
+            });
+          }
+
+          // Handle errors in preliminary phase
+          if (response.error) {
+            console.error(
+              "[LinkedIn Scam Detector] Analysis error:",
+              response.error
+            );
+            updateBadge(badgeContainer, "caution", 50);
+          }
+        })
+        .catch((error) => {
+          console.error(
+            "[LinkedIn Scam Detector] Failed to send scan request:",
+            error
+          );
+          // Show error state
+          updateBadge(badgeContainer, "caution", 50);
+        });
     } catch (error) {
       console.error(
         "[LinkedIn Scam Detector] Error processing job element:",
@@ -213,6 +320,7 @@ export default function LinkedInScanner() {
     const handleLocationChange = () => {
       // Reset processed jobs for new page
       setProcessedJobs(new Set());
+      badgeContainersRef.current.clear();
       setTimeout(() => {
         scanPageForJobs();
       }, 500);

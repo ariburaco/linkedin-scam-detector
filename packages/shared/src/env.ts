@@ -13,9 +13,9 @@ export const env = createEnv({
     // CORS
     CORS_ORIGIN: z.string().url().min(1),
 
-    // // Polar Payments
-    // POLAR_ACCESS_TOKEN: z.string().min(1),
-    // POLAR_SUCCESS_URL: z.string().url().min(1),
+    // Polar Payments
+    POLAR_ACCESS_TOKEN: z.string().min(1),
+    POLAR_SUCCESS_URL: z.string().url().min(1),
 
     // Google AI (Gemini)
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),

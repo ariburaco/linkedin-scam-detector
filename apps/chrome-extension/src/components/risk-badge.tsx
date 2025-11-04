@@ -1,5 +1,4 @@
 import { AlertCircle, CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
-import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -65,12 +64,13 @@ export function RiskBadge({
       onClick={isClickable ? onClick : undefined}
       disabled={!isClickable}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium transition-all",
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium shadow-sm transition-all duration-200",
         config.color,
         config.textColor,
         config.borderColor,
         isClickable && "cursor-pointer",
         isClickable && config.hover,
+        isClickable && "hover:shadow-md hover:-translate-y-0.5 active:translate-y-0",
         !isClickable && "cursor-default",
         isAnimating && "animate-pulse",
         className
@@ -78,10 +78,10 @@ export function RiskBadge({
       aria-label={`Risk level: ${config.label}${riskScore ? ` (${riskScore}/100)` : ""}`}
       title={`Risk level: ${config.label}${riskScore ? ` - Score: ${riskScore}/100` : ""}. Click for details.`}
     >
-      <Icon className={cn("size-3 shrink-0", isAnimating && "animate-spin")} />
-      <span className="whitespace-nowrap">{config.label}</span>
+      <Icon className={cn("size-3.5 shrink-0", isAnimating && "animate-spin")} />
+      <span className="whitespace-nowrap font-semibold">{config.label}</span>
       {riskScore !== undefined && riskLevel !== "loading" && (
-        <span className="text-[10px] opacity-90">({riskScore})</span>
+        <span className="text-[11px] opacity-90 font-medium">({riskScore})</span>
       )}
     </button>
   );

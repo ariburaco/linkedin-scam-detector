@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { FeedbackModal } from "./feedback-modal";
 import { RiskReport } from "./risk-report";
 import type { RiskReportData } from "./risk-report";
 
@@ -12,6 +13,7 @@ import type { LocalRulesResult } from "@/lib/local-rules/types";
 export function RiskReportManager() {
   const [isOpen, setIsOpen] = useState(false);
   const [reportData, setReportData] = useState<RiskReportData | null>(null);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   useEffect(() => {
     const handleOpenReport = (event: CustomEvent) => {
@@ -66,21 +68,36 @@ export function RiskReportManager() {
   }, []);
 
   const handleReportIssue = () => {
-    // This will be implemented in Task 8
-    console.log("[Risk Report Manager] Report issue clicked");
-    // TODO: Open feedback modal
+    // Close risk report and open feedback modal
+    setIsOpen(false);
+    setIsFeedbackOpen(true);
+  };
+
+  const handleFeedbackSubmitted = () => {
+    // Feedback was submitted successfully
+    // Modal will close automatically
   };
 
   if (!reportData) {
     return null;
   }
 
+  const jobUrl = reportData.jobData.url || window.location.href;
+
   return (
-    <RiskReport
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      data={reportData}
-      onReportIssue={handleReportIssue}
-    />
+    <>
+      <RiskReport
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        data={reportData}
+        onReportIssue={handleReportIssue}
+      />
+      <FeedbackModal
+        open={isFeedbackOpen}
+        onOpenChange={setIsFeedbackOpen}
+        jobUrl={jobUrl}
+        onSubmit={handleFeedbackSubmitted}
+      />
+    </>
   );
 }

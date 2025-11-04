@@ -77,7 +77,7 @@
         "id": 7,
         "title": "Integrate End-to-End Detection and UI Flow",
         "description": "Connect the content script, background worker, and UI components to create a seamless user experience from page load to displaying the final risk report.",
-        "details": "Modify the content script (`linkedin-scanner.tsx`). When a job element is detected: 1. Extract job description text. 2. Use `chrome.runtime.sendMessage` to send the text to the background service worker (`src/background/index.ts`). 3. The background worker first runs the Local Rules Engine (Task 2). It immediately sends a message back to the content script with the preliminary result, which updates the Badge to 'caution' or 'safe'. 4. The background worker then asynchronously calls the tRPC `scanJob` endpoint (Task 3). 5. When the full AI analysis returns, the background worker sends another message to the content script with the complete data. 6. The content script updates the badge to its final state and stores the full report data, ready to be passed to the `RiskReport` component when the user clicks the badge.",
+        "details": "Modify the content script (`linkedin-scanner.tsx`). When a job element is detected: 1. Extract job description text. 2. Use `chrome.runtime.sendMessage` to send the text to the background service worker (`src/background/index.ts`). 3. The background worker first runs the Local Rules Engine (Task 2). It immediately sends a message back to the content script with the preliminary result, which updates the Badge to 'caution' or 'safe'. 4. The background worker then asynchronously calls the tRPC `scanJob` endpoint (Task 3). 5. When the full AI analysis returns, the background worker sends another message to the content script with the complete data. 6. The content script updates the badge to its final state and stores the full report data, ready to be passed to the `RiskReport` component when the user clicks the badge.\n<info added on 2025-11-04T20:29:19.363Z>\n```json\n\"Completed End-to-End Detection and UI Flow Integration:\\n\\nBackground Message Handler (src/background/messages/scan-job.ts):\\n- Handles job scanning requests from the content script.\\n- Step 1: Runs the local rules engine immediately (<100ms).\\n- Step 2: Sends a preliminary result back to the content script instantly.\\n- Step 3: Calls the tRPC `scanJob` endpoint asynchronously for Gemini AI analysis.\\n- Step 4: Sends the final result via `chrome.tabs.sendMessage` when AI analysis completes.\\n- Implements error handling with a fallback to the preliminary result.\\n- Uses the sender's tab ID from the request for message routing.\\n\\nBadge Updater Utility (src/lib/badge-updater.ts):\\n- Created an `updateBadge()` function to dynamically update badge components.\\n- The function unmounts the existing badge and remounts it with new data.\\n- Uses `React.createElement` for compatibility in .ts files.\\n- Updates data attributes to trigger a badge re-render.\\n\\nContent Script Updates (src/contents/linkedin-scanner.tsx):\\n- Extracts job data and sends it to the background worker via `sendToBackground`.\\n- Sets up a `chrome.runtime.onMessage` listener for final results from the background worker.\\n- Handles the preliminary result from local rules to update the badge immediately.\\n- Handles the final result from the AI analysis to update the badge when received.\\n- Stores both local and Gemini results in the badge container's data attributes.\\n- Tracks badge container references for message routing.\\n- Ensures proper cleanup of message listeners.\\n\\nFinal Flow:\\n1. The content script detects a job and sends it to the background worker (<500ms).\\n2. The background worker runs local rules, sends a preliminary result, and the badge updates immediately.\\n3. The background worker calls the Gemini API, sends the final result, and the badge updates again (<2 seconds).\\n4. When a user clicks the badge, the RiskReport modal opens with the full analysis data.\\n\\nFeatures Implemented:\\n- Instant preliminary results (<500ms).\\n- Asynchronous AI analysis with a final update (<2 seconds).\\n- Proper message routing between the content script and background worker.\\n- Error handling with fallback states.\\n- Dynamic badge updates without a page reload.\\n- Full data persistence for the report modal.\\n\\nStatus: All TypeScript compiles successfully and the feature is ready for testing on live LinkedIn pages.\"\n```\n</info added on 2025-11-04T20:29:19.363Z>",
         "testStrategy": "Perform a full end-to-end test. Load a LinkedIn job page. Verify the badge appears quickly in a preliminary state (<500ms). Verify the badge updates to its final state after the AI analysis completes (<2 seconds). Click the badge and confirm the `RiskReport` modal opens with the correct, detailed information from the Gemini API. Test with multiple job postings simultaneously.",
         "priority": "high",
         "dependencies": [
@@ -85,21 +85,21 @@
           3,
           6
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": []
       },
       {
         "id": 8,
         "title": "Implement Anonymous Feedback Collection System",
         "description": "Build the UI and backend functionality for the 'Report Issue with this Scan' feature to collect user feedback on scan accuracy.",
-        "details": "Create a `FeedbackModal.tsx` component that opens when the 'Report Issue' button in the `RiskReport` is clicked. This modal will contain the simple form described in the PRD (radio buttons for feedback type, optional text field). On submission, the component will call a function that sends a message to the background worker. The background worker will then call the `submitFeedback` tRPC mutation (created in Task 1). Before calling, it should hash the job URL using SHA-256 to ensure user privacy. The backend will store the `jobUrlHash`, `feedbackType`, `details`, and `timestamp` in the `Feedback` table.",
+        "details": "Create a `FeedbackModal.tsx` component that opens when the 'Report Issue' button in the `RiskReport` is clicked. This modal will contain the simple form described in the PRD (radio buttons for feedback type, optional text field). On submission, the component will call a function that sends a message to the background worker. The background worker will then call the `submitFeedback` tRPC mutation (created in Task 1). Before calling, it should hash the job URL using SHA-256 to ensure user privacy. The backend will store the `jobUrlHash`, `feedbackType`, `details`, and `timestamp` in the `Feedback` table.\n<info added on 2025-11-04T20:32:23.063Z>\n{\n  \"text\": \"Implementation Summary:\\n\\nThe feature has been implemented across three main files:\\n\\n1.  **`src/components/feedback-modal.tsx`**: A new modal component built using shadcn/ui components (`Dialog`, `RadioGroup`, `Textarea`, `Button`). It includes radio buttons for feedback types (False positive, False negative, Other), an optional details textarea, form validation, and handles success/error states. The modal automatically closes after a successful submission.\\n\\n2.  **`src/background/messages/submit-feedback.ts`**: This background message handler receives the feedback submission. It uses the Web Crypto API to hash the job URL with SHA-256 for user privacy before calling the `submitFeedback` tRPC mutation.\\n\\n3.  **`src/components/risk-report-manager.tsx`**: The existing risk report manager has been updated to integrate the feedback system. When the \\\"Report Issue\\\" button is clicked, it now closes the risk report modal and opens the `FeedbackModal`, passing the current job URL to it.\\n\\n**User Flow:**\\nA user clicks \\\"Report Issue\\\" in the risk report, which closes and opens the feedback modal. Upon submission, a message is sent to the background worker, which hashes the URL, calls the tRPC endpoint, and the backend stores the anonymized feedback (`jobUrlHash`, `feedbackType`, `details`, `timestamp`). The UI then shows a success message and the modal closes.\"\n}\n</info added on 2025-11-04T20:32:23.063Z>",
         "testStrategy": "Trigger the feedback modal from a risk report. Submit the form with different feedback types. Verify that a new entry is created in the `Feedback` table in the database. Confirm that the `jobUrlHash` is a valid SHA-256 hash and that no personal identifying information is stored. Test the 'Other issue' text field.",
         "priority": "medium",
         "dependencies": [
           1,
           6
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -110,7 +110,7 @@
         "testStrategy": "Click the extension icon in the Chrome toolbar and verify the popup displays correctly. Check that settings changed in the options page are saved and retrieved correctly. Ensure the links on the options page navigate to the correct destinations. Test that disabling 'Auto-Scan' correctly prevents the content script from running.",
         "priority": "low",
         "dependencies": [],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": []
       },
       {
@@ -131,7 +131,7 @@
     ],
     "metadata": {
       "created": "2025-11-04T19:43:05.465Z",
-      "updated": "2025-11-04T20:26:28.614Z",
+      "updated": "2025-11-04T20:35:01.619Z",
       "description": "Tasks for master context"
     }
   }
