@@ -111,7 +111,7 @@ export function isJobSearchPage(): boolean {
 export function isJobPostingPage(): boolean {
   return (
     window.location.pathname.includes("/jobs/view/") ||
-    window.location.pathname.match(/\/jobs\/view\/\d+/)
+    !!window.location.pathname.match(/\/jobs\/view\/\d+/)
   );
 }
 

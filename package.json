@@ -1,5 +1,5 @@
 {
-  "name": "acme",
+  "name": "linkedin-scam-detector",
   "private": true,
   "type": "module",
   "workspaces": {

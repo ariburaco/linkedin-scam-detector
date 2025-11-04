@@ -1,4 +1,4 @@
-export const EXTENSION_NAME = "StreamSense";
+export const EXTENSION_NAME = "LinkedIn Scam Detector";
 
 export const API_URL = process.env.PLASMO_PUBLIC_API_URL;
 export const AUTH_URL = process.env.PLASMO_PUBLIC_AUTH_URL;
