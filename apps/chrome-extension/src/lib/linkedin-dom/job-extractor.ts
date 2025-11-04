@@ -106,10 +106,22 @@ export function extractJobDataFromPage(): JobData | null {
  * Check if we're on a job search results page
  */
 export function isJobSearchPage(): boolean {
-  return (
-    window.location.pathname.includes("/jobs/search") ||
-    window.location.pathname.includes("/jobs/collections")
-  );
+  const pathname = window.location.pathname;
+  const isSearchPage =
+    pathname.includes("/jobs/search") ||
+    pathname.includes("/jobs/collections") ||
+    (pathname === "/jobs/search/" && window.location.search.length > 0);
+
+  // Debug logging
+  if (process.env.NODE_ENV === "development") {
+    console.log("[isJobSearchPage] Checking:", {
+      pathname,
+      search: window.location.search,
+      isSearchPage,
+    });
+  }
+
+  return isSearchPage;
 }
 
 /**
