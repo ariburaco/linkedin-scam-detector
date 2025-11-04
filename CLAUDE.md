@@ -46,10 +46,10 @@ bun db:push                          # Push schema changes without migration
 bun db:migrate                       # Create and apply migrations
 bun db:generate                      # Generate Prisma client
 bun db:studio                        # Open Prisma Studio UI
-bun db:start                         # Start PostgreSQL in Docker (detached)
-bun db:watch                         # Start PostgreSQL in Docker (interactive)
-bun db:stop                          # Stop PostgreSQL container
-bun db:down                          # Stop and remove PostgreSQL container
+bun db:start                         # Start PostgreSQL and Redis in Docker (detached)
+bun db:watch                         # Start PostgreSQL and Redis in Docker (interactive)
+bun db:stop                          # Stop PostgreSQL and Redis containers
+bun db:down                          # Stop and remove PostgreSQL and Redis containers
 ```
 
 ### Chrome Extension Development
@@ -164,6 +164,7 @@ Common utilities and types:
 Required environment variables (see `apps/web/.env.example`):
 
 - `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis connection string (default Docker port: 6380)
 - `BETTER_AUTH_SECRET` - Secret for auth token signing
 - `BETTER_AUTH_URL` - Base URL for auth callbacks
 - `POLAR_ACCESS_TOKEN` - Polar API access token

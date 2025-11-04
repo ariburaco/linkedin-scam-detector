@@ -167,7 +167,8 @@ export default function LinkedInScanner() {
         },
         bubbles: true,
       });
-      container.dispatchEvent(event);
+      // Dispatch on window to ensure RiskReportManager listener receives it
+      window.dispatchEvent(event);
     };
 
     // Render badge component

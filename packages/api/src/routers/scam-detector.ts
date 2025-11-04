@@ -6,6 +6,8 @@ import { z } from "zod";
 import { router, publicProcedure } from "../index";
 import { aiService } from "../services/ai-service";
 
+import { globalCacheMiddleware } from "./middlewares/trpc-cache";
+
 export const scamDetectorRouter = router({
   // Scan a job posting
   scanJob: publicProcedure
@@ -16,6 +18,7 @@ export const scamDetectorRouter = router({
         companyName: z.string().optional(),
       })
     )
+    .use(globalCacheMiddleware)
     .mutation(async ({ input }) => {
       const { jobText, jobUrl, companyName } = input;
 

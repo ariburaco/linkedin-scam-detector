@@ -47,7 +47,15 @@
     "db:start": "turbo -F @acme/db db:start",
     "db:watch": "turbo -F @acme/db db:watch",
     "db:stop": "turbo -F @acme/db db:stop",
-    "db:down": "turbo -F @acme/db db:down"
+    "db:down": "turbo -F @acme/db db:down",
+    "docker:up": "docker compose -f packages/db/docker-compose.yml up -d",
+    "docker:down": "docker compose -f packages/db/docker-compose.yml down",
+    "docker:stop": "docker compose -f packages/db/docker-compose.yml stop",
+    "docker:start": "docker compose -f packages/db/docker-compose.yml start",
+    "docker:restart": "docker compose -f packages/db/docker-compose.yml restart",
+    "docker:logs": "docker compose -f packages/db/docker-compose.yml logs",
+    "docker:exec": "docker compose -f packages/db/docker-compose.yml exec",
+    "docker:exec:bash": "docker compose -f packages/db/docker-compose.yml exec redis bash"
   },
   "dependencies": {
     "dotenv": "^17.2.2",

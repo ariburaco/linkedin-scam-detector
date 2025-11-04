@@ -21,15 +21,16 @@
     "typescript": "catalog:"
   },
   "dependencies": {
-    "@trpc/server": "catalog:",
-    "@trpc/client": "catalog:",
-    "next": "catalog:",
-    "dotenv": "catalog:",
-    "zod": "catalog:",
-    "superjson": "catalog:",
     "@acme/auth": "workspace:*",
     "@acme/db": "workspace:*",
+    "@ai-sdk/google": "^2.0.28",
+    "@trpc/client": "catalog:",
+    "@trpc/server": "catalog:",
     "ai": "^5.0.87",
-    "@ai-sdk/google": "^2.0.28"
+    "dotenv": "catalog:",
+    "next": "catalog:",
+    "superjson": "catalog:",
+    "trpc-redis-cache": "^0.3.0",
+    "zod": "catalog:"
   }
 }
