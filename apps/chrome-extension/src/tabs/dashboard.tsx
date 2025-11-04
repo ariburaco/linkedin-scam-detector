@@ -1,11 +1,12 @@
 // Import types directly from the message handler
-import type { RequestBody, ResponseBody } from "@/background/messages/count";
+import { sendToBackground } from "@plasmohq/messaging";
 import { useEffect, useState } from "react";
+
+import type { RequestBody, ResponseBody } from "@/background/messages/count";
 import { CountButton } from "@/features/count-button";
 import { SecureStorageDemo } from "@/features/secure-storage-demo";
 import { StorageDemo } from "@/features/storage-demo";
 import { UpdateChecker } from "@/features/update-checker";
-import { sendToBackground } from "@plasmohq/messaging";
 
 import "@/style.css";
 

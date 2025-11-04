@@ -1,0 +1,138 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Backend API and Database Schema",
+        "description": "Initialize the tRPC router and Prisma schemas for the scam detector service. This foundational step enables API communication and data persistence for feedback and caching.",
+        "details": "Within the existing monorepo, define the `scamDetectorRouter` in `packages/api/src/routers/scam-detector.ts`. Implement the basic structure for the `scanJob` and `submitFeedback` procedures using tRPC and Zod for input validation as specified in the PRD. Create the `scam-detector.prisma` file in `packages/db/prisma/schema/` with the `Feedback` and `ScanCache` models. Run `prisma generate` and `prisma db push` to apply the schema to the development PostgreSQL database.\n<info added on 2025-11-04T19:48:13.634Z>\nImplementation has been completed as follows:\n- **Prisma Schema**: Created `packages/db/prisma/schema/scam-detector.prisma` with `Feedback` (id, jobUrlHash, feedbackType, details, submittedAt) and `ScanCache` (id, jobUrlHash, riskScore, flags, scannedAt, expiresAt) models, including performance indexes.\n- **tRPC Router**: Implemented in `packages/api/src/routers/scam-detector.ts`. Includes a `scanJob` mutation (accepts jobText, jobUrl, companyName; handles URL hashing, 24h cache check, and has a placeholder for Gemini integration) and a `submitFeedback` mutation (accepts jobUrlHash, feedbackType, details). All inputs are validated with Zod.\n- **Router Integration**: The `scamDetectorRouter` has been added to `packages/api/src/routers/index.ts` under the `scamDetector` namespace.\n- **Prisma Client**: Successfully generated with the new models.\n\n**Note**: Pushing the schema with `bun db:push` requires Docker to be running. The `DATABASE_URL` must be set in `apps/web/.env`.\n\n**Next Steps**:\n1. Run `bun db:start` to start the database service.\n2. Run `bun db:push` to apply the schema.\n3. Begin Task 3 to implement the Gemini integration in the `scanJob` mutation.\n</info added on 2025-11-04T19:48:13.634Z>",
+        "testStrategy": "Verify that the tRPC router is mounted and accessible. Test the `submitFeedback` endpoint with a mock request to ensure it can write to the `Feedback` table in the database. Confirm that Prisma Client is generated correctly and can connect to the database.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Implement Client-Side Local Rules Engine",
+        "description": "Develop a pure JavaScript module that performs instant, client-side analysis of job posting content to detect obvious red flags without API latency. This engine will power the initial badge display.",
+        "details": "Create a new module, e.g., `src/lib/local-rules.ts`. Implement functions for the four specified rules: 1) Email Domain Check using regex to find emails and check against a list of personal domains. 2) Keyword Pattern Matching using regex for financial, urgency, and MLM keywords. 3) Salary Analysis to parse salary strings and flag unrealistic amounts for entry-level roles. 4) Grammar Quality Score using a lightweight library like `languagetool-js/light` to count errors. The main function should take job text and return a preliminary risk score and a list of detected local flags. This module will be used in the background service worker.\n<info added on 2025-11-04T19:51:20.947Z>\n```json\n\"**Implementation Summary:**\\n\\nThe local rules engine has been implemented with a modular structure within the `src/lib/local-rules/` directory, including separate files for types (`types.ts`), email checks (`email-check.ts`), keyword matching (`keyword-matcher.ts`), salary analysis (`salary-analyzer.ts`), and grammar checks (`grammar-check.ts`). The main engine is exported from `src/lib/local-rules/index.ts`.\\n\\nKey implementation details:\\n- **Grammar Check:** A lightweight, dependency-free approach was used to check for unprofessional patterns (e.g., excessive capitalization, exclamation marks) instead of incorporating an external library.\\n- **Scoring System:** A points-based system has been defined:\\n  - Email flags: 25 points\\n  - High-confidence keywords: 20 points\\n  - Medium-confidence keywords: 10 points\\n  - High-confidence salary flags: 20 points\\n  - Medium-confidence salary flags: 10 points\\n  - Grammar flags: 5 points\\n- **Risk Thresholds:** The total score translates to risk levels: Safe (<40), Caution (40-69), Danger (70+).\\n\\nThe module is pure JavaScript, regex-based, and optimized for performance (<100ms execution) to be used in the background service worker.\"\n```\n</info added on 2025-11-04T19:51:20.947Z>",
+        "testStrategy": "Write unit tests for each rule function with various inputs (e.g., text containing a Gmail address, text with 'training fee', text with a high salary). Test the main engine function to ensure it correctly aggregates results and returns the expected score and flags. Performance test to ensure execution is under 100ms.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Integrate Gemini 2.0 Flash for AI Analysis",
+        "description": "Implement the backend logic to send job posting content to the Gemini 2.0 Flash model via the Vercel AI SDK and receive a structured risk assessment.",
+        "details": "In the `scanJob` mutation within the `scamDetectorRouter`, use the Vercel AI SDK's `generateObject` function with the Gemini 2.0 Flash model (`gemini-2.0-flash-exp`). Construct a detailed prompt instructing the model to act as a scam detection expert and analyze the provided job text. Define the Zod schema for the structured output, including `risk_score` (number), `flags` (array of objects with `name`, `reasoning`, `confidence`), and `recommendation` (string). Implement caching logic: before calling the API, check the `ScanCache` table for a recent result for the given `jobUrlHash`. After a successful API call, store the result in the cache with a 24-hour expiration.",
+        "testStrategy": "Test the `scanJob` endpoint with sample job descriptions (both scam and legitimate). Verify that the API call to Gemini is made correctly. Assert that the response from the endpoint matches the structured JSON format defined. Test the caching mechanism by calling the endpoint twice with the same URL and ensuring the second call is served from the cache (e.g., by checking database logs or response times).",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Develop Content Script for DOM Monitoring and Injection",
+        "description": "Create the Plasmo content script that runs on LinkedIn job pages, monitors the DOM for job posting elements, and injects a placeholder for the risk badge.",
+        "details": "Create the content script at `src/contents/linkedin-scanner.tsx`. Use a `MutationObserver` to efficiently detect when new job postings are added to the DOM, especially on search results pages with infinite scroll. Identify stable CSS selectors for job cards (`.job-search-card`) and the main job view container. For each detected job posting element, extract key information like job title, company name, and the job description URL. Create a function that injects a root `div` for our React components next to the job title or another consistent location. This script will be the entry point for all UI on the LinkedIn page.",
+        "testStrategy": "Manually test the extension on various LinkedIn job pages: search results, individual job postings, and 'Jobs' tab on company pages. Verify that the placeholder is injected correctly for all visible jobs. Test on pages with many results to ensure the `MutationObserver` performs well and doesn't cause page slowdown. Check browser console for errors.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Build Risk Indicator Badge UI Component",
+        "description": "Develop the React component for the visual risk indicator badge (Safe, Caution, Danger) that will be injected into the LinkedIn UI.",
+        "details": "Create a React component, `Badge.tsx`. This component will accept a `riskLevel` prop ('safe', 'caution', 'danger') and display the corresponding color (green, yellow, red) and icon. Style the component to be non-intrusive and visually consistent with LinkedIn's UI. The component should initially display a 'loading' state. When clicked, it should trigger a function passed via props to open the detailed report. Use Plasmo's content script UI rendering to mount this component into the placeholder created in the previous task.",
+        "testStrategy": "Use Storybook or a similar tool to develop the badge component in isolation, testing its appearance for all risk levels and loading states. Manually test its injection and appearance on a live LinkedIn page. Verify that the click handler is correctly triggered.",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement Detailed Risk Report Modal/Panel UI",
+        "description": "Create the React component for the detailed risk report, which displays the overall score, specific red flags, AI reasoning, and a feedback button.",
+        "details": "Develop a `RiskReport.tsx` React component. It should be implemented as a modal or a side panel. The component will receive the full analysis data (score, flags, recommendation) as props. It should map over the `flags` array and render each one with its title, confidence level, and explanation, as shown in the PRD's example. Include a prominent overall risk score and the final recommendation. Add a 'Report Issue with this Scan' button and a 'Close' button. Ensure the component is accessible (ARIA attributes, keyboard navigation) and responsive.",
+        "testStrategy": "Develop the component in Storybook using mock data for high-risk, medium-risk, and safe jobs. Test that all data is displayed correctly. Verify keyboard navigation (tabbing through elements, closing with Escape key). Test the display on different screen sizes to ensure responsiveness. Check that the 'Report Issue' button's click handler works.",
+        "priority": "medium",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Integrate End-to-End Detection and UI Flow",
+        "description": "Connect the content script, background worker, and UI components to create a seamless user experience from page load to displaying the final risk report.",
+        "details": "Modify the content script (`linkedin-scanner.tsx`). When a job element is detected: 1. Extract job description text. 2. Use `chrome.runtime.sendMessage` to send the text to the background service worker (`src/background/index.ts`). 3. The background worker first runs the Local Rules Engine (Task 2). It immediately sends a message back to the content script with the preliminary result, which updates the Badge to 'caution' or 'safe'. 4. The background worker then asynchronously calls the tRPC `scanJob` endpoint (Task 3). 5. When the full AI analysis returns, the background worker sends another message to the content script with the complete data. 6. The content script updates the badge to its final state and stores the full report data, ready to be passed to the `RiskReport` component when the user clicks the badge.",
+        "testStrategy": "Perform a full end-to-end test. Load a LinkedIn job page. Verify the badge appears quickly in a preliminary state (<500ms). Verify the badge updates to its final state after the AI analysis completes (<2 seconds). Click the badge and confirm the `RiskReport` modal opens with the correct, detailed information from the Gemini API. Test with multiple job postings simultaneously.",
+        "priority": "high",
+        "dependencies": [
+          2,
+          3,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Implement Anonymous Feedback Collection System",
+        "description": "Build the UI and backend functionality for the 'Report Issue with this Scan' feature to collect user feedback on scan accuracy.",
+        "details": "Create a `FeedbackModal.tsx` component that opens when the 'Report Issue' button in the `RiskReport` is clicked. This modal will contain the simple form described in the PRD (radio buttons for feedback type, optional text field). On submission, the component will call a function that sends a message to the background worker. The background worker will then call the `submitFeedback` tRPC mutation (created in Task 1). Before calling, it should hash the job URL using SHA-256 to ensure user privacy. The backend will store the `jobUrlHash`, `feedbackType`, `details`, and `timestamp` in the `Feedback` table.",
+        "testStrategy": "Trigger the feedback modal from a risk report. Submit the form with different feedback types. Verify that a new entry is created in the `Feedback` table in the database. Confirm that the `jobUrlHash` is a valid SHA-256 hash and that no personal identifying information is stored. Test the 'Other issue' text field.",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Build Extension Shell (Popup, Options Page)",
+        "description": "Create the main extension UI, including the popup that appears when the toolbar icon is clicked and the options page for settings.",
+        "details": "Using Plasmo, create `src/popup.tsx` to build the popup UI. This should display basic stats (e.g., 'X jobs scanned today') and a link to the options page. Create `src/options/index.tsx` for the options page. Implement a simple UI with a toggle for 'Enable Auto-Scan' and links to the privacy policy, about page, and bug reporting. Use `chrome.storage.local` to store and retrieve user settings so they persist.",
+        "testStrategy": "Click the extension icon in the Chrome toolbar and verify the popup displays correctly. Check that settings changed in the options page are saved and retrieved correctly. Ensure the links on the options page navigate to the correct destinations. Test that disabling 'Auto-Scan' correctly prevents the content script from running.",
+        "priority": "low",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Finalize and Prepare for Chrome Web Store Launch",
+        "description": "Complete all necessary steps for publishing the extension, including creating store assets, writing a privacy policy, and performing final testing.",
+        "details": "Write a clear and comprehensive Privacy Policy, detailing all data collection and usage as specified in the PRD. Create the required Chrome Web Store assets: icons (16, 32, 48, 128px), promotional screenshots, and a compelling description. Thoroughly test the extension on Chrome for Windows, macOS, and Linux. Beta test with a small group of users to gather initial feedback. Once all bugs are addressed and the listing is complete, bundle the extension and submit it for review on the Chrome Web Store dashboard.",
+        "testStrategy": "Review the Privacy Policy against the PRD's requirements and Chrome's policies. Validate all store assets are the correct dimensions and format. Perform a final regression test of all features on a clean Chrome profile. Follow the Chrome Web Store submission checklist and ensure all required fields are filled out correctly.",
+        "priority": "medium",
+        "dependencies": [
+          7,
+          8,
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-11-04T19:43:05.465Z",
+      "updated": "2025-11-04T19:51:21.219Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
