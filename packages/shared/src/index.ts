@@ -7,3 +7,6 @@ export const updateUserSchema = z.object({
 });
 
 export type UpdateUserParams = z.infer<typeof updateUserSchema>;
+
+// Export environment manager
+export { env } from "./env";

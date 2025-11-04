@@ -4,8 +4,12 @@ import { z } from "zod";
  * Schema for individual red flag detected in job posting
  */
 export const redFlagSchema = z.object({
-  type: z.string().describe("Flag category (e.g., 'personal_email', 'upfront_payment')"),
-  confidence: z.enum(["low", "medium", "high"]).describe("Confidence level of the flag"),
+  type: z
+    .string()
+    .describe("Flag category (e.g., 'personal_email', 'upfront_payment')"),
+  confidence: z
+    .enum(["low", "medium", "high"])
+    .describe("Confidence level of the flag"),
   message: z.string().describe("User-friendly explanation of the flag"),
   reasoning: z.string().describe("Detailed reasoning why this is a red flag"),
 });
@@ -24,12 +28,8 @@ export const scamAnalysisSchema = z.object({
   riskLevel: z
     .enum(["safe", "caution", "danger"])
     .describe("Risk level category"),
-  flags: z
-    .array(redFlagSchema)
-    .describe("Array of detected red flags"),
-  summary: z
-    .string()
-    .describe("One-sentence summary of the analysis"),
+  flags: z.array(redFlagSchema).describe("Array of detected red flags"),
+  summary: z.string().describe("One-sentence summary of the analysis"),
 });
 
 export type ScamAnalysisResult = z.infer<typeof scamAnalysisSchema>;
@@ -45,4 +45,3 @@ export const jobAnalysisInputSchema = z.object({
 });
 
 export type JobAnalysisInput = z.infer<typeof jobAnalysisInputSchema>;
-

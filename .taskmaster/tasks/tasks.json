@@ -85,7 +85,7 @@
           3,
           6
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": []
       },
       {
@@ -131,7 +131,7 @@
     ],
     "metadata": {
       "created": "2025-11-04T19:43:05.465Z",
-      "updated": "2025-11-04T20:20:51.742Z",
+      "updated": "2025-11-04T20:26:28.614Z",
       "description": "Tasks for master context"
     }
   }

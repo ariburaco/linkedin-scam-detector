@@ -114,4 +114,3 @@ Identify red flags related to:
 
 Provide a risk score (0-100), risk level (safe/caution/danger), list of flags with confidence levels, and a summary.`;
 }
-

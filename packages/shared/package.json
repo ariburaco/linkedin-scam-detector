@@ -8,7 +8,8 @@
     "./Logger": "./src/Logger.ts",
     "./constants": "./src/constants.ts",
     "./utils": "./src/utils/index.ts",
-    "./types": "./src/types/index.ts"
+    "./types": "./src/types/index.ts",
+    "./env": "./src/env.ts"
   },
   "license": "MIT",
   "scripts": {
@@ -20,6 +21,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@t3-oss/env-nextjs": "^0.13.8",
     "zod": "catalog:",
     "chalk": "^5.3.0"
   },
