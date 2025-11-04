@@ -1,4 +1,5 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+
 import { scamDetectorRouter } from "./scam-detector";
 
 export const appRouter = router({

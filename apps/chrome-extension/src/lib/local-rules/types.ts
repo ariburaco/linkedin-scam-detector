@@ -16,4 +16,3 @@ export interface LocalRulesResult {
   riskLevel: "safe" | "caution" | "danger";
   flags: LocalRuleFlag[];
 }
-

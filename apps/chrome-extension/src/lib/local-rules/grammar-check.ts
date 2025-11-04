@@ -14,7 +14,7 @@ export function grammarCheck(description: string): LocalRuleFlag[] {
   // Check for excessive capitalization (more than 10% of words)
   const words = description.split(/\s+/);
   const capitalizedWords = words.filter(
-    (word) => word.length > 1 && word[0] === word[0]?.toUpperCase(),
+    (word) => word.length > 1 && word[0] === word[0]?.toUpperCase()
   );
   const capitalizationRatio = capitalizedWords.length / words.length;
 
@@ -60,7 +60,8 @@ export function grammarCheck(description: string): LocalRuleFlag[] {
 
   // Check for excessive all-caps words (common in scams)
   const allCapsWords = words.filter(
-    (word) => word.length > 2 && word === word.toUpperCase() && /[A-Z]/.test(word),
+    (word) =>
+      word.length > 2 && word === word.toUpperCase() && /[A-Z]/.test(word)
   );
   if (allCapsWords.length > 3) {
     flags.push({
@@ -89,4 +90,3 @@ export function grammarCheck(description: string): LocalRuleFlag[] {
 
   return flags;
 }
-

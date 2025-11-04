@@ -1,9 +1,10 @@
-import { AUTH_URL } from "@/constants/constants";
+import type { auth } from "@acme/auth";
 import { adminClient, anonymousClient } from "better-auth/client/plugins";
+import { inferAdditionalFields } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
-import type { auth } from "@acme/auth";
-import { inferAdditionalFields } from "better-auth/client/plugins";
+
+import { AUTH_URL } from "@/constants/constants";
 
 export const authClient = createAuthClient({
   baseURL: AUTH_URL,

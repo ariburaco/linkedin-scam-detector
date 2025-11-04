@@ -9,12 +9,14 @@ This is a Turborepo monorepo containing a Chrome extension (StreamSense) and a N
 ## Development Commands
 
 ### Setup
+
 ```bash
 bun install                           # Install dependencies
 bun db:push                          # Push Prisma schema to database
 ```
 
 ### Development
+
 ```bash
 bun dev                              # Start all apps in development mode
 bun dev:web                          # Start only the Next.js web app (port 3000)
@@ -22,12 +24,14 @@ bun dev:chrome-extension             # Start only the Chrome extension
 ```
 
 ### Building
+
 ```bash
 bun build                            # Build all applications
 bun typecheck                        # Type-check all applications
 ```
 
 ### Linting & Formatting
+
 ```bash
 bun lint                             # Lint all applications
 bun lint:fix                         # Lint and auto-fix all applications
@@ -36,6 +40,7 @@ bun format:write                     # Format all files
 ```
 
 ### Database Commands
+
 ```bash
 bun db:push                          # Push schema changes without migration
 bun db:migrate                       # Create and apply migrations
@@ -48,6 +53,7 @@ bun db:down                          # Stop and remove PostgreSQL container
 ```
 
 ### Chrome Extension Development
+
 ```bash
 cd apps/chrome-extension
 bun dev                              # Start Plasmo dev server with HMR
@@ -79,6 +85,7 @@ packages/
 The Chrome extension (StreamSense) is built with Plasmo and targets streaming platforms (Netflix, Prime Video, Disney+, Max).
 
 **Key Components:**
+
 - `src/contents/` - Content scripts injected into streaming platform pages
   - `smart-skip.tsx` - Main content script with debug panel and smart skip logic
   - Content scripts run at `document_end` in the `MAIN` world
@@ -98,6 +105,7 @@ The Chrome extension (StreamSense) is built with Plasmo and targets streaming pl
 
 **Streaming Platform Support:**
 The `VIDE_PLATFORMS` array in `src/features/streaming/smart-skip.ts` defines platform configurations with selectors for skip buttons and navigation controls. Each platform config includes:
+
 - `platform` - Domain matcher
 - `selectors` - Array of button selectors (aria-label, class, id, data-testid, shadow-dom)
 - `videoSelector` - CSS selector for video element
@@ -108,6 +116,7 @@ The `VIDE_PLATFORMS` array in `src/features/streaming/smart-skip.ts` defines pla
 Next.js 16 application with App Router, running on port 3000.
 
 **Key Features:**
+
 - Authentication pages (`/login`, `/dashboard`, `/success`)
 - tRPC API routes under `/api/trpc`
 - Better-Auth with Polar payment integration
@@ -116,6 +125,7 @@ Next.js 16 application with App Router, running on port 3000.
 ### API Layer (`packages/api`)
 
 tRPC-based API with type-safe procedures:
+
 - `publicProcedure` - Unauthenticated endpoints
 - `protectedProcedure` - Requires valid session (throws `UNAUTHORIZED` if no session)
 - Uses SuperJSON for serialization
@@ -124,6 +134,7 @@ tRPC-based API with type-safe procedures:
 ### Authentication (`packages/auth`)
 
 Better-Auth configuration with:
+
 - Email/password authentication enabled
 - Polar plugin for payments and customer management
 - Checkout and portal functionality
@@ -133,6 +144,7 @@ Better-Auth configuration with:
 ### Database (`packages/db`)
 
 Prisma setup with:
+
 - PostgreSQL database
 - Schema files in `prisma/schema/` (split schema: `schema.prisma` + `auth.prisma`)
 - Generated client output to `generated/` directory
@@ -141,6 +153,7 @@ Prisma setup with:
 ### Shared Package (`packages/shared`)
 
 Common utilities and types:
+
 - `Logger.ts` - Shared logging utility
 - `constants.ts` - Application constants
 - `utils/` - Shared utility functions
@@ -149,6 +162,7 @@ Common utilities and types:
 ## Environment Variables
 
 Required environment variables (see `apps/web/.env.example`):
+
 - `DATABASE_URL` - PostgreSQL connection string
 - `BETTER_AUTH_SECRET` - Secret for auth token signing
 - `BETTER_AUTH_URL` - Base URL for auth callbacks
@@ -171,5 +185,6 @@ This project uses **Bun** (`bun@1.2.23`) exclusively. Do not use npm, pnpm, or y
 - Chrome extension runs content scripts in the MAIN world to access page JavaScript context
 
 ## Task Master AI Instructions
+
 **Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
 @./.taskmaster/CLAUDE.md

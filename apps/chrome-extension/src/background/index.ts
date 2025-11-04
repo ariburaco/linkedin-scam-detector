@@ -6,7 +6,10 @@
 import { Storage } from "@plasmohq/storage";
 
 import { extensionLoggerBackground } from "@/shared/loggers";
-import { initializeSession, isSessionManagerInitialized } from "@/shared/sessionManager";
+import {
+  initializeSession,
+  isSessionManagerInitialized,
+} from "@/shared/sessionManager";
 
 // Initialize the storage
 export const storage = new Storage();
@@ -20,7 +23,9 @@ const initSessionManager = async () => {
     // Check if already initialized to prevent duplicate listeners
     const alreadyInitialized = await isSessionManagerInitialized();
     if (alreadyInitialized) {
-      extensionLoggerBackground.info("Session manager already initialized, skipping");
+      extensionLoggerBackground.info(
+        "Session manager already initialized, skipping"
+      );
       return;
     }
 
@@ -39,13 +44,18 @@ initSessionManager();
 
 // Reinitialize on extension startup (browser restart)
 chrome.runtime.onStartup.addListener(() => {
-  extensionLoggerBackground.info("Extension startup detected, reinitializing session manager");
+  extensionLoggerBackground.info(
+    "Extension startup detected, reinitializing session manager"
+  );
   initSessionManager();
 });
 
 // Reinitialize on extension installation/update
 chrome.runtime.onInstalled.addListener((details) => {
-  extensionLoggerBackground.info("Extension installed/updated:", details.reason);
+  extensionLoggerBackground.info(
+    "Extension installed/updated:",
+    details.reason
+  );
   if (details.reason === "install" || details.reason === "update") {
     initSessionManager();
   }

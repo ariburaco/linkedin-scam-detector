@@ -2,7 +2,6 @@ import { emailCheck } from "./email-check";
 import { grammarCheck } from "./grammar-check";
 import { keywordMatcher } from "./keyword-matcher";
 import { salaryAnalyzer } from "./salary-analyzer";
-
 import type { JobData, LocalRulesResult } from "./types";
 
 /**
@@ -28,10 +27,10 @@ export class LocalRulesEngine {
     flags.push(...keywordFlags);
     // High confidence keywords add more points
     const highConfidenceKeywords = keywordFlags.filter(
-      (f) => f.confidence === "high",
+      (f) => f.confidence === "high"
     ).length;
     const mediumConfidenceKeywords = keywordFlags.filter(
-      (f) => f.confidence === "medium",
+      (f) => f.confidence === "medium"
     ).length;
     riskScore += highConfidenceKeywords * 20 + mediumConfidenceKeywords * 10;
 
@@ -40,10 +39,10 @@ export class LocalRulesEngine {
       const salaryFlags = salaryAnalyzer(jobData.salary, jobData.title);
       flags.push(...salaryFlags);
       const highConfidenceSalary = salaryFlags.filter(
-        (f) => f.confidence === "high",
+        (f) => f.confidence === "high"
       ).length;
       const mediumConfidenceSalary = salaryFlags.filter(
-        (f) => f.confidence === "medium",
+        (f) => f.confidence === "medium"
       ).length;
       riskScore += highConfidenceSalary * 20 + mediumConfidenceSalary * 10;
     }
@@ -52,7 +51,7 @@ export class LocalRulesEngine {
     const grammarFlags = grammarCheck(jobData.description);
     flags.push(...grammarFlags);
     const mediumConfidenceGrammar = grammarFlags.filter(
-      (f) => f.confidence === "medium",
+      (f) => f.confidence === "medium"
     ).length;
     riskScore += mediumConfidenceGrammar * 5;
 
@@ -80,4 +79,3 @@ export function analyzeJobPosting(jobData: JobData): LocalRulesResult {
 // Export individual rule functions for testing
 export { emailCheck, keywordMatcher, salaryAnalyzer, grammarCheck };
 export type { JobData, LocalRulesResult, LocalRuleFlag } from "./types";
-

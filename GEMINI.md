@@ -59,6 +59,7 @@ gemini -p "Expand all tasks" --output-format stream-json
 ### Google Search Grounding
 
 Leverage built-in Google Search as an alternative to Perplexity research mode:
+
 - Best practices research
 - Library documentation
 - Security vulnerability checks
@@ -67,15 +68,19 @@ Leverage built-in Google Search as an alternative to Perplexity research mode:
 ## Important Differences from Other Agents
 
 ### No Slash Commands
+
 Gemini CLI does not support custom slash commands (unlike Claude Code). Use natural language instead.
 
 ### No Tool Allowlist
+
 Security is managed at the MCP level, not via agent configuration.
 
 ### Session Persistence
+
 Use `/checkpoint` instead of git worktrees for managing multiple work contexts.
 
 ### Configuration Files
+
 - Global: `~/.gemini/settings.json`
 - Project: `.gemini/settings.json`
 - **Not**: `.mcp.json` (that's for Claude Code)
@@ -107,4 +112,4 @@ As a Gemini CLI assistant with Task Master:
 
 ---
 
-*See AGENTS.md for complete Task Master commands, workflows, and best practices.*
+_See AGENTS.md for complete Task Master commands, workflows, and best practices._

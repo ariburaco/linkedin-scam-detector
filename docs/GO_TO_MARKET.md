@@ -13,6 +13,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 ### Primary Persona: Active Job Seeker
 
 **Demographics:**
+
 - Age: 22-35 years old
 - Location: English-speaking countries (US, UK, Canada, Australia, India)
 - Status: Recent graduate, career switcher, remote work seeker, unemployed
@@ -21,12 +22,14 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 - Tech savvy: Comfortable installing Chrome extensions
 
 **Psychographics:**
+
 - **Pain:** Has encountered or fears encountering job scams
 - **Behavior:** Applies to 5-15 jobs per week on LinkedIn
 - **Motivation:** Wants peace of mind, avoid wasting time on fake jobs
 - **Trust:** Values privacy, skeptical of "too good to be true" offers
 
 **Where they hang out:**
+
 - Reddit: r/jobs, r/recruitinghell, r/cscareerquestions
 - LinkedIn (ironically)
 - Job search Facebook groups
@@ -45,6 +48,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 "LinkedIn Scam Detector analyzes job postings in real-time using AI to identify red flags like personal emails, upfront payment requests, and unrealistic salaries. Get instant warnings before you apply, so you never waste time—or worse, lose money—on fraudulent jobs."
 
 **Differentiation:**
+
 - ✅ **Only LinkedIn-focused tool** (competitors are generic fraud detectors)
 - ✅ **Privacy-first** (no data collection, open-source)
 - ✅ **Instant analysis** (badge appears within 2 seconds)
@@ -80,6 +84,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 **URL:** scamdetector.app or linkedin-scamdetector.com
 
 **Content:**
+
 - Hero: "Don't Fall for LinkedIn Job Scams"
 - Subheading: "Instant AI-powered scam detection. Coming soon."
 - Pain points: "$501M lost to job scams in 2024. Are you next?"
@@ -87,6 +92,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 - Social proof: "Join 200+ job seekers on the waitlist"
 
 **Call-to-Action:**
+
 - [Join Waitlist] button → Email form (ConvertKit or Mailchimp)
 - [Follow on Twitter/LinkedIn] links
 
@@ -99,12 +105,14 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 **Post Title:** "I'm building a Chrome extension to detect LinkedIn job scams. Would you use it?"
 
 **Post Content:**
+
 - Problem: "I've encountered several fake job postings on LinkedIn..."
 - Solution: "I'm building an extension that analyzes jobs and flags red flags..."
 - Ask: "Would this be useful? What features would you want?"
 - Link: "Sign up for early access: [link]"
 
 **Expected Response:**
+
 - 100-500 upvotes = strong validation
 - 20-50 comments = feature requests + user stories
 - 50-100 waitlist signups
@@ -114,12 +122,14 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 #### 3. Social Media Presence
 
 **Twitter/X:**
+
 - Handle: @ScamDetectorAI
 - Bio: "Protect job seekers from LinkedIn scams with AI. Launching Q1 2025."
 - Tweets: Share scam statistics, real scam examples (anonymized), development updates
 - Frequency: 3-5 tweets/week
 
 **LinkedIn:**
+
 - Company page: LinkedIn Scam Detector
 - Post frequency: 2-3/week
 - Content: "Did you know 60% of job listings have scam characteristics?"
@@ -135,6 +145,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 **Timing:** Tuesday-Thursday, 12:01 AM PST (best engagement days)
 
 **Product Hunt Page:**
+
 - **Tagline:** "AI-powered LinkedIn job scam detector"
 - **Description:** 3-4 paragraphs explaining problem, solution, how it works
 - **Media:**
@@ -144,6 +155,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 - **First Comment:** Post detailed explanation + "Ask me anything!"
 
 **Maker Strategy:**
+
 - Respond to ALL comments within 1 hour
 - Upvote all questions (encourages engagement)
 - Share to Twitter: "We're live on Product Hunt! [link]"
@@ -156,6 +168,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 #### 2. Reddit Launch Posts
 
 **Post on:**
+
 - r/jobs
 - r/recruitinghell
 - r/cscareerquestions
@@ -165,6 +178,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 **Post Title:** "I built a free Chrome extension that detects LinkedIn job scams"
 
 **Post Content:**
+
 - Hook: "After almost falling for a fake recruiter, I built this..."
 - Problem: Quick stats ($501M lost, 60% fake listings)
 - Solution: "The extension analyzes jobs and shows a badge: safe, caution, or danger"
@@ -174,6 +188,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 - AMA: "Happy to answer questions!"
 
 **Expected Results:**
+
 - 500-2K upvotes across all subreddits
 - 200-500 installs from Reddit traffic
 - 50-100 comments (mix of praise, feature requests, skepticism)
@@ -183,6 +198,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 #### 3. LinkedIn Post (Ironic but Effective)
 
 **From personal profile:**
+
 - Post type: Document/carousel (higher engagement)
 - Slide 1: "I built a tool to detect LinkedIn job scams"
 - Slide 2: Problem (stats, real scam examples)
@@ -204,6 +220,7 @@ This document outlines the launch strategy, marketing channels, and growth tacti
 "Instantly detect job scams on LinkedIn with AI. Free, privacy-first, and protects you from fake recruiters and fraudulent postings."
 
 **Long Description:**
+
 ```
 🛡️ Protect Yourself from LinkedIn Job Scams
 
@@ -246,6 +263,7 @@ Install now and never fall for a fake job again.
 ```
 
 **Screenshots (5):**
+
 1. Badge on LinkedIn job posting
 2. Detailed risk report modal
 3. Settings/options page
@@ -265,16 +283,19 @@ Install now and never fall for a fake job again.
 #### 1. Content Marketing
 
 **Blog Posts (Medium, Dev.to, Substack):**
+
 - "I Analyzed 1,000 LinkedIn Job Postings. Here's What I Found."
 - "How to Spot a LinkedIn Job Scam (Before You Apply)"
 - "Building an AI Scam Detector: Technical Deep Dive"
 
 **Video Content (YouTube, TikTok):**
+
 - "LinkedIn Scam Detector Demo (60 seconds)"
 - "Real Job Scam Examples Caught by AI"
 - "How I Built This Extension (Developer Story)"
 
 **Distribution:**
+
 - Post to relevant subreddits (r/entrepreneur, r/programming)
 - Share on Twitter with hooks: "Thread: How to never fall for a LinkedIn scam 🧵"
 - Submit to Hacker News (if technically interesting)
@@ -284,16 +305,19 @@ Install now and never fall for a fake job again.
 #### 2. Respond to All Feedback
 
 **Chrome Web Store Reviews:**
+
 - Thank positive reviews
 - Fix bugs mentioned in negative reviews within 48 hours
 - Update extension + reply: "Fixed in v1.0.1"
 
 **Reddit Comments:**
+
 - Answer all questions
 - Address skepticism: "Here's how we protect privacy..."
 - Collect feature requests for Phase 2
 
 **Product Hunt:**
+
 - Reply to follow-up questions
 - Share metrics: "We've protected 500 users in 24 hours!"
 
@@ -302,11 +326,13 @@ Install now and never fall for a fake job again.
 #### 3. Iterate Based on Feedback
 
 **Common feedback patterns:**
+
 - "Badge doesn't appear on X page layout" → Fix CSS injection
 - "False positive on Y company" → Tune Gemini prompt
 - "Can you add Z feature?" → Add to Phase 2 roadmap
 
 **Ship updates fast:**
+
 - Bug fix: 24-48 hours
 - New feature: 1 week
 - Show users you're listening
@@ -320,12 +346,14 @@ Install now and never fall for a fake job again.
 #### 1. SEO (Long-Term)
 
 **Target Keywords:**
+
 - "LinkedIn scam detector"
 - "How to detect fake LinkedIn jobs"
 - "LinkedIn recruiter scam"
 - "Job scam protection"
 
 **Content Strategy:**
+
 - Blog: Weekly articles on job scam trends
 - FAQ page: "How does it work?" "Is it safe?"
 - Testimonials: User stories of caught scams
@@ -337,6 +365,7 @@ Install now and never fall for a fake job again.
 #### 2. Word-of-Mouth
 
 **Encourage sharing:**
+
 - In-app: "Protected a friend? Share this extension"
 - Email: "Refer a friend, get 1 month Pro free"
 - Social proof: "Join 5,000+ protected job seekers"
@@ -348,11 +377,13 @@ Install now and never fall for a fake job again.
 #### 3. Community Engagement
 
 **Be active in:**
+
 - r/jobs (answer "Is this job a scam?" posts)
 - LinkedIn groups (career advice, job search)
 - Twitter job search discussions
 
 **Provide value first, promote second:**
+
 - "Here are 5 red flags to watch for... [Useful content]"
 - "P.S. I built a tool that detects these automatically: [link]"
 
@@ -363,6 +394,7 @@ Install now and never fall for a fake job again.
 #### 1. Google Ads
 
 **Target Keywords:**
+
 - "LinkedIn job scam"
 - "Fake recruiter LinkedIn"
 - "Job scam protection"
@@ -383,11 +415,13 @@ Install now and never fall for a fake job again.
 #### 3. Influencer Partnerships
 
 **Target:**
+
 - Career advice YouTubers (50K-500K subs)
 - Job search TikTokers
 - LinkedIn career coaches (10K+ followers)
 
 **Offer:**
+
 - Free Pro accounts
 - Affiliate commission (20% of referrals)
 - Sponsored mention in video/post
@@ -429,18 +463,21 @@ Install now and never fall for a fake job again.
 ### Target Publications
 
 **Tier 1 (Dream Coverage):**
+
 - TechCrunch
 - The Verge
 - Wired
 - Fast Company
 
 **Tier 2 (Realistic):**
+
 - Lifehacker
 - Hacker News front page
 - ProductHunt Newsletter
 - Indie Hackers
 
 **Tier 3 (Achievable):**
+
 - Job search blogs (The Muse, FlexJobs)
 - Career advice sites
 - Developer publications (Dev.to, Hashnode)
@@ -466,6 +503,7 @@ Install now and never fall for a fake job again.
 ### Press Kit
 
 **Include:**
+
 - Logo (high-res PNG, SVG)
 - Screenshots (5 images)
 - Demo video (30-60 seconds)
@@ -482,6 +520,7 @@ Install now and never fall for a fake job again.
 ### 1. Job Boards
 
 **Partner with:**
+
 - Indeed
 - Glassdoor
 - ZipRecruiter
@@ -494,6 +533,7 @@ Install now and never fall for a fake job again.
 ### 2. Career Services
 
 **Partner with:**
+
 - University career centers
 - Recruiting agencies
 - Career coaches
@@ -505,6 +545,7 @@ Install now and never fall for a fake job again.
 ### 3. Cybersecurity Companies
 
 **Partner with:**
+
 - Norton, McAfee, Kaspersky
 - Identity theft protection services
 
@@ -517,11 +558,13 @@ Install now and never fall for a fake job again.
 ### IF Launch Flops (<100 installs in Week 1)
 
 **Diagnose:**
+
 - Product issue? (Extension doesn't work on certain LinkedIn layouts)
 - Message issue? (Value prop unclear)
 - Channel issue? (Wrong audience targeted)
 
 **Pivot:**
+
 - Rewrite landing page (A/B test messaging)
 - Post on different subreddits
 - Create viral demo video (TikTok, YouTube Shorts)
@@ -531,11 +574,13 @@ Install now and never fall for a fake job again.
 ### IF Chrome Web Store Removes Extension
 
 **Plan B:**
+
 - Launch standalone web tool (paste job description)
 - Distribute via GitHub (manual install)
 - Pivot to Firefox Add-ons
 
 **Communication:**
+
 - Email all users: "Extension removed, here's the alternative"
 - Twitter thread explaining situation
 - Blog post: "Why LinkedIn doesn't want you to have this tool"
@@ -544,13 +589,13 @@ Install now and never fall for a fake job again.
 
 ## Timeline Summary
 
-| Week | Focus | Goal |
-|------|-------|------|
-| 1-2 | Build MVP | Ship extension |
-| 3 (Launch) | Max visibility | 500 installs |
-| 4-5 | Sustain momentum | 1K users |
-| 6-8 | Content + SEO | 5K users |
-| 9-12 | Optimize conversion | $1K MRR |
+| Week       | Focus               | Goal           |
+| ---------- | ------------------- | -------------- |
+| 1-2        | Build MVP           | Ship extension |
+| 3 (Launch) | Max visibility      | 500 installs   |
+| 4-5        | Sustain momentum    | 1K users       |
+| 6-8        | Content + SEO       | 5K users       |
+| 9-12       | Optimize conversion | $1K MRR        |
 
 ---
 

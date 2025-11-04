@@ -1,11 +1,12 @@
 import { findElement, SELECTORS } from "./selectors";
-
 import type { JobData } from "./types";
 
 /**
  * Extract job data from a job card element (search results)
  */
-export function extractJobDataFromCard(cardElement: HTMLElement): JobData | null {
+export function extractJobDataFromCard(
+  cardElement: HTMLElement
+): JobData | null {
   try {
     // Extract job title
     const titleElement = findElement(cardElement, SELECTORS.jobTitle);
@@ -20,11 +21,17 @@ export function extractJobDataFromCard(cardElement: HTMLElement): JobData | null
     const company = companyElement?.textContent?.trim() || "";
 
     // Extract job URL
-    const linkElement = findElement(cardElement, SELECTORS.jobLink) as HTMLAnchorElement | null;
+    const linkElement = findElement(
+      cardElement,
+      SELECTORS.jobLink
+    ) as HTMLAnchorElement | null;
     const url = linkElement?.href || window.location.href;
 
     // Extract description (may be truncated in cards)
-    const descriptionElement = findElement(cardElement, SELECTORS.jobDescription);
+    const descriptionElement = findElement(
+      cardElement,
+      SELECTORS.jobDescription
+    );
     const description = descriptionElement?.textContent?.trim() || "";
 
     // Extract salary if available
@@ -114,4 +121,3 @@ export function isJobPostingPage(): boolean {
     !!window.location.pathname.match(/\/jobs\/view\/\d+/)
   );
 }
-

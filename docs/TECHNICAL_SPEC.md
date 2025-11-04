@@ -254,47 +254,47 @@ export default function LinkedInScanner() {
 **Implementation:**
 
 ```typescript
-import type { PlasmoMessaging } from "@plasmohq/messaging"
-import { hashJobUrl } from "~lib/utils/hash"
-import { getCachedScan, setCachedScan } from "~lib/utils/cache"
-import { trpc } from "~trpc/client"
+import type { PlasmoMessaging } from "@plasmohq/messaging";
+import { hashJobUrl } from "~lib/utils/hash";
+import { getCachedScan, setCachedScan } from "~lib/utils/cache";
+import { trpc } from "~trpc/client";
 
 const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
-  const { jobText, jobUrl, companyName } = req.body
+  const { jobText, jobUrl, companyName } = req.body;
 
   try {
     // 1. Generate URL hash for caching
-    const jobHash = hashJobUrl(jobUrl)
+    const jobHash = hashJobUrl(jobUrl);
 
     // 2. Check local cache first
-    const cached = await getCachedScan(jobHash)
+    const cached = await getCachedScan(jobHash);
     if (cached && !cached.isExpired) {
-      res.send({ success: true, data: cached.result })
-      return
+      res.send({ success: true, data: cached.result });
+      return;
     }
 
     // 3. Call backend API (tRPC)
     const result = await trpc.scamDetector.scanJob.mutate({
       jobText,
       jobUrl,
-      companyName
-    })
+      companyName,
+    });
 
     // 4. Cache result locally (24 hour TTL)
-    await setCachedScan(jobHash, result, 24 * 60 * 60 * 1000)
+    await setCachedScan(jobHash, result, 24 * 60 * 60 * 1000);
 
     // 5. Return result
-    res.send({ success: true, data: result })
+    res.send({ success: true, data: result });
   } catch (error) {
-    console.error("[scan-job] Error:", error)
+    console.error("[scan-job] Error:", error);
     res.send({
       success: false,
-      error: error.message || "Failed to scan job posting"
-    })
+      error: error.message || "Failed to scan job posting",
+    });
   }
-}
+};
 
-export default handler
+export default handler;
 ```
 
 **Caching Strategy:**
@@ -316,58 +316,58 @@ Instant detection of obvious scam patterns without API calls. Runs in <100ms.
 #### `lib/local-rules/index.ts`
 
 ```typescript
-import { emailCheck } from "./email-check"
-import { keywordMatcher } from "./keyword-matcher"
-import { salaryAnalyzer } from "./salary-analyzer"
+import { emailCheck } from "./email-check";
+import { keywordMatcher } from "./keyword-matcher";
+import { salaryAnalyzer } from "./salary-analyzer";
 
 export interface JobData {
-  description: string
-  title: string
-  company: string
-  salary?: string
+  description: string;
+  title: string;
+  company: string;
+  salary?: string;
 }
 
 export interface LocalRulesResult {
-  riskScore: number // 0-100
-  riskLevel: "safe" | "caution" | "danger"
+  riskScore: number; // 0-100
+  riskLevel: "safe" | "caution" | "danger";
   flags: Array<{
-    type: string
-    confidence: "low" | "medium" | "high"
-    message: string
-  }>
+    type: string;
+    confidence: "low" | "medium" | "high";
+    message: string;
+  }>;
 }
 
 export class LocalRulesEngine {
   analyze(jobData: JobData): LocalRulesResult {
-    const flags = []
-    let riskScore = 0
+    const flags = [];
+    let riskScore = 0;
 
     // 1. Email domain check
-    const emailFlags = emailCheck(jobData.description)
-    flags.push(...emailFlags)
-    riskScore += emailFlags.length * 25
+    const emailFlags = emailCheck(jobData.description);
+    flags.push(...emailFlags);
+    riskScore += emailFlags.length * 25;
 
     // 2. Keyword pattern matching
-    const keywordFlags = keywordMatcher(jobData.description)
-    flags.push(...keywordFlags)
-    riskScore += keywordFlags.length * 15
+    const keywordFlags = keywordMatcher(jobData.description);
+    flags.push(...keywordFlags);
+    riskScore += keywordFlags.length * 15;
 
     // 3. Salary analysis
     if (jobData.salary) {
-      const salaryFlags = salaryAnalyzer(jobData.salary, jobData.title)
-      flags.push(...salaryFlags)
-      riskScore += salaryFlags.length * 20
+      const salaryFlags = salaryAnalyzer(jobData.salary, jobData.title);
+      flags.push(...salaryFlags);
+      riskScore += salaryFlags.length * 20;
     }
 
     // Cap at 100
-    riskScore = Math.min(riskScore, 100)
+    riskScore = Math.min(riskScore, 100);
 
     // Determine risk level
-    let riskLevel: "safe" | "caution" | "danger" = "safe"
-    if (riskScore >= 70) riskLevel = "danger"
-    else if (riskScore >= 40) riskLevel = "caution"
+    let riskLevel: "safe" | "caution" | "danger" = "safe";
+    if (riskScore >= 70) riskLevel = "danger";
+    else if (riskScore >= 40) riskLevel = "caution";
 
-    return { riskScore, riskLevel, flags }
+    return { riskScore, riskLevel, flags };
   }
 }
 ```
@@ -382,36 +382,36 @@ const PERSONAL_DOMAINS = [
   "hotmail.com",
   "aol.com",
   "icloud.com",
-  "protonmail.com"
-]
+  "protonmail.com",
+];
 
 const RECRUITING_DOMAINS = [
   "indeed.com",
   "linkedin.com",
   "glassdoor.com",
-  "ziprecruiter.com"
-]
+  "ziprecruiter.com",
+];
 
 export function emailCheck(description: string) {
-  const flags = []
+  const flags = [];
 
   // Extract emails using regex
-  const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g
-  const emails = description.match(emailRegex) || []
+  const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+  const emails = description.match(emailRegex) || [];
 
   for (const email of emails) {
-    const domain = email.split('@')[1].toLowerCase()
+    const domain = email.split("@")[1].toLowerCase();
 
     if (PERSONAL_DOMAINS.includes(domain)) {
       flags.push({
         type: "personal_email",
         confidence: "high",
-        message: `Contact email uses personal domain (${domain}). Legitimate recruiters typically use company emails.`
-      })
+        message: `Contact email uses personal domain (${domain}). Legitimate recruiters typically use company emails.`,
+      });
     }
   }
 
-  return flags
+  return flags;
 }
 ```
 
@@ -427,7 +427,7 @@ const SCAM_KEYWORDS = {
     "background check fee",
     "starter kit purchase",
     "cashier's check",
-    "cryptocurrency investment"
+    "cryptocurrency investment",
   ],
   medium_risk: [
     "work from home guaranteed",
@@ -437,13 +437,13 @@ const SCAM_KEYWORDS = {
     "limited positions",
     "be your own boss",
     "unlimited earning potential",
-    "must act now"
-  ]
-}
+    "must act now",
+  ],
+};
 
 export function keywordMatcher(description: string) {
-  const flags = []
-  const lowerDesc = description.toLowerCase()
+  const flags = [];
+  const lowerDesc = description.toLowerCase();
 
   // Check high-risk keywords
   for (const keyword of SCAM_KEYWORDS.high_risk) {
@@ -451,25 +451,25 @@ export function keywordMatcher(description: string) {
       flags.push({
         type: "scam_keyword",
         confidence: "high",
-        message: `Contains suspicious phrase: "${keyword}". This is a common scam tactic.`
-      })
+        message: `Contains suspicious phrase: "${keyword}". This is a common scam tactic.`,
+      });
     }
   }
 
   // Check medium-risk keywords
-  const mediumMatches = SCAM_KEYWORDS.medium_risk.filter(kw =>
-    lowerDesc.includes(kw.toLowerCase())
-  )
+  const mediumMatches = SCAM_KEYWORDS.medium_risk.filter((kw) =>
+    lowerDesc.includes(kw.toLowerCase()),
+  );
 
   if (mediumMatches.length >= 2) {
     flags.push({
       type: "urgency_language",
       confidence: "medium",
-      message: `Multiple urgency/pressure tactics detected. Legitimate jobs don't rush candidates.`
-    })
+      message: `Multiple urgency/pressure tactics detected. Legitimate jobs don't rush candidates.`,
+    });
   }
 
-  return flags
+  return flags;
 }
 ```
 
@@ -477,23 +477,25 @@ export function keywordMatcher(description: string) {
 
 ```typescript
 export function salaryAnalyzer(salary: string, jobTitle: string) {
-  const flags = []
+  const flags = [];
 
   // Extract salary numbers
-  const salaryMatch = salary.match(/\$?([\d,]+)/)
-  if (!salaryMatch) return flags
+  const salaryMatch = salary.match(/\$?([\d,]+)/);
+  if (!salaryMatch) return flags;
 
-  const salaryAmount = parseInt(salaryMatch[1].replace(/,/g, ''))
+  const salaryAmount = parseInt(salaryMatch[1].replace(/,/g, ""));
 
   // Check if entry-level with unrealistic salary
-  const isEntryLevel = /entry|junior|intern|associate|assistant/i.test(jobTitle)
+  const isEntryLevel = /entry|junior|intern|associate|assistant/i.test(
+    jobTitle,
+  );
 
   if (isEntryLevel && salaryAmount > 150000) {
     flags.push({
       type: "unrealistic_salary",
       confidence: "high",
-      message: `Salary ($${salaryAmount.toLocaleString()}) is unusually high for an entry-level position.`
-    })
+      message: `Salary ($${salaryAmount.toLocaleString()}) is unusually high for an entry-level position.`,
+    });
   }
 
   // Check for vague promises
@@ -501,11 +503,11 @@ export function salaryAnalyzer(salary: string, jobTitle: string) {
     flags.push({
       type: "vague_salary",
       confidence: "medium",
-      message: `Salary uses vague language ("guaranteed", "up to", "potential"). Legitimate jobs specify clear ranges.`
-    })
+      message: `Salary uses vague language ("guaranteed", "up to", "potential"). Legitimate jobs specify clear ranges.`,
+    });
   }
 
-  return flags
+  return flags;
 }
 ```
 
@@ -516,38 +518,40 @@ export function salaryAnalyzer(salary: string, jobTitle: string) {
 ### tRPC Router (`packages/api/src/routers/scam-detector.ts`)
 
 ```typescript
-import { z } from "zod"
-import { router, publicProcedure } from "../trpc"
-import { generateObject } from "ai"
-import { google } from "@ai-sdk/google"
-import { prisma } from "@repo/db"
-import { createHash } from "crypto"
+import { z } from "zod";
+import { router, publicProcedure } from "../trpc";
+import { generateObject } from "ai";
+import { google } from "@ai-sdk/google";
+import { prisma } from "@repo/db";
+import { createHash } from "crypto";
 
 export const scamDetectorRouter = router({
   // Main scanning endpoint
   scanJob: publicProcedure
-    .input(z.object({
-      jobText: z.string().min(10),
-      jobUrl: z.string().url(),
-      companyName: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        jobText: z.string().min(10),
+        jobUrl: z.string().url(),
+        companyName: z.string().optional(),
+      }),
+    )
     .mutation(async ({ input }) => {
-      const { jobText, jobUrl, companyName } = input
+      const { jobText, jobUrl, companyName } = input;
 
       // 1. Generate URL hash
-      const jobUrlHash = createHash("sha256").update(jobUrl).digest("hex")
+      const jobUrlHash = createHash("sha256").update(jobUrl).digest("hex");
 
       // 2. Check database cache (7-day TTL)
       const cached = await prisma.scanCache.findUnique({
         where: { jobUrlHash },
-      })
+      });
 
       if (cached && cached.expiresAt > new Date()) {
         return {
           riskScore: cached.riskScore,
           flags: cached.flags as any[],
-          source: "cache"
-        }
+          source: "cache",
+        };
       }
 
       // 3. Call Gemini 2.0 Flash via Vercel AI SDK
@@ -556,12 +560,14 @@ export const scamDetectorRouter = router({
         schema: z.object({
           riskScore: z.number().min(0).max(100),
           riskLevel: z.enum(["safe", "caution", "danger"]),
-          flags: z.array(z.object({
-            type: z.string(),
-            confidence: z.enum(["low", "medium", "high"]),
-            message: z.string(),
-            reasoning: z.string(),
-          })),
+          flags: z.array(
+            z.object({
+              type: z.string(),
+              confidence: z.enum(["low", "medium", "high"]),
+              message: z.string(),
+              reasoning: z.string(),
+            }),
+          ),
           summary: z.string(),
         }),
         prompt: `You are a job scam detection expert. Analyze this LinkedIn job posting and identify potential scam indicators.
@@ -591,7 +597,7 @@ Calculate overall risk score (0-100):
 - 70-100: Danger (likely scam, do not apply)
 
 Respond with structured JSON.`,
-      })
+      });
 
       // 4. Cache result in database
       await prisma.scanCache.create({
@@ -601,22 +607,24 @@ Respond with structured JSON.`,
           flags: result.object.flags as any,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         },
-      })
+      });
 
       // 5. Return result
       return {
         ...result.object,
-        source: "gemini"
-      }
+        source: "gemini",
+      };
     }),
 
   // Feedback submission
   submitFeedback: publicProcedure
-    .input(z.object({
-      jobUrlHash: z.string(),
-      feedbackType: z.enum(["false_positive", "false_negative", "other"]),
-      details: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        jobUrlHash: z.string(),
+        feedbackType: z.enum(["false_positive", "false_negative", "other"]),
+        details: z.string().optional(),
+      }),
+    )
     .mutation(async ({ input }) => {
       await prisma.feedback.create({
         data: {
@@ -624,11 +632,11 @@ Respond with structured JSON.`,
           feedbackType: input.feedbackType,
           details: input.details,
         },
-      })
+      });
 
-      return { success: true }
+      return { success: true };
     }),
-})
+});
 ```
 
 ### Gemini Integration (Vercel AI SDK)
@@ -645,7 +653,7 @@ Respond with structured JSON.`,
 
 ```typescript
 // packages/api/src/lib/ai.ts
-import { google } from "@ai-sdk/google"
+import { google } from "@ai-sdk/google";
 
 export const geminiModel = google("gemini-2.0-flash-exp", {
   apiKey: process.env.GOOGLE_AI_API_KEY,
@@ -660,32 +668,36 @@ export const geminiModel = google("gemini-2.0-flash-exp", {
   temperature: 0.3, // Lower = more consistent
   topP: 0.9,
   topK: 40,
-})
+});
 ```
 
 **Structured Output:**
 
 ```typescript
-import { generateObject } from "ai"
-import { z } from "zod"
+import { generateObject } from "ai";
+import { z } from "zod";
 
 const scamAnalysisSchema = z.object({
   riskScore: z.number().min(0).max(100).describe("Overall risk score"),
   riskLevel: z.enum(["safe", "caution", "danger"]),
-  flags: z.array(z.object({
-    type: z.string().describe("Flag category (e.g., 'personal_email', 'upfront_payment')"),
-    confidence: z.enum(["low", "medium", "high"]),
-    message: z.string().describe("User-friendly explanation"),
-    reasoning: z.string().describe("Why this is a red flag"),
-  })),
+  flags: z.array(
+    z.object({
+      type: z
+        .string()
+        .describe("Flag category (e.g., 'personal_email', 'upfront_payment')"),
+      confidence: z.enum(["low", "medium", "high"]),
+      message: z.string().describe("User-friendly explanation"),
+      reasoning: z.string().describe("Why this is a red flag"),
+    }),
+  ),
   summary: z.string().describe("One-sentence summary of the analysis"),
-})
+});
 
 const result = await generateObject({
   model: geminiModel,
   schema: scamAnalysisSchema,
-  prompt: "..." // See above for full prompt
-})
+  prompt: "...", // See above for full prompt
+});
 ```
 
 **Error Handling:**
@@ -790,12 +802,10 @@ model ScanCache {
 ```json
 {
   "permissions": [
-    "storage",           // Local cache
-    "activeTab"          // Content script injection
+    "storage", // Local cache
+    "activeTab" // Content script injection
   ],
-  "host_permissions": [
-    "https://www.linkedin.com/*"
-  ]
+  "host_permissions": ["https://www.linkedin.com/*"]
 }
 ```
 
@@ -851,19 +861,19 @@ model ScanCache {
 
 ```typescript
 try {
-  const result = await analyzeJob(jobData)
+  const result = await analyzeJob(jobData);
 } catch (error) {
   if (error.code === "NETWORK_ERROR") {
     // Show offline badge
-    setRiskLevel("unknown")
-    setErrorMessage("Offline - using local rules only")
+    setRiskLevel("unknown");
+    setErrorMessage("Offline - using local rules only");
   } else if (error.code === "API_RATE_LIMIT") {
     // Show rate limit message
-    setErrorMessage("Rate limit reached. Try again in 1 minute.")
+    setErrorMessage("Rate limit reached. Try again in 1 minute.");
   } else {
     // Generic error
-    console.error("Scan error:", error)
-    setErrorMessage("Failed to scan. Please refresh and try again.")
+    console.error("Scan error:", error);
+    setErrorMessage("Failed to scan. Please refresh and try again.");
   }
 }
 ```

@@ -1,8 +1,9 @@
+import type { Session } from "@acme/auth/types";
 import type { PlasmoMessaging } from "@plasmohq/messaging";
+
 import { extensionLoggerBackground } from "@/shared/loggers";
 import * as sessionManager from "@/shared/sessionManager";
 
-import type { Session } from "@acme/auth/types";
 
 export interface SessionRequestBody {
   action:

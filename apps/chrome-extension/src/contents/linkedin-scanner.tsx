@@ -1,6 +1,7 @@
 import type { PlasmoCSConfig } from "plasmo";
 import { useEffect, useRef, useState } from "react";
 
+import { BadgeMount } from "@/components/badge-mount";
 import {
   extractJobDataFromCard,
   extractJobDataFromPage,
@@ -230,7 +231,6 @@ export default function LinkedInScanner() {
     };
   }, []);
 
-  // This component doesn't render anything visible
-  // The badge will be injected directly into the DOM
-  return null;
+  // Render BadgeMount component to mount React badges into containers
+  return <BadgeMount />;
 }

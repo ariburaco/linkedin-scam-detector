@@ -22,12 +22,12 @@ export function createBadgeContainer(): HTMLElement {
  */
 export function injectBadgeContainer(
   jobElement: HTMLElement,
-  jobId: string,
+  jobId: string
 ): HTMLElement | null {
   try {
     // Check if badge already exists
     const existingBadge = jobElement.querySelector(
-      `.${BADGE_CONTAINER_CLASS}[${BADGE_CONTAINER_DATA_ATTR}="${jobId}"]`,
+      `.${BADGE_CONTAINER_CLASS}[${BADGE_CONTAINER_DATA_ATTR}="${jobId}"]`
     );
     if (existingBadge) {
       return existingBadge as HTMLElement;
@@ -62,7 +62,7 @@ export function injectBadgeContainer(
       if (titleElement.nextSibling) {
         titleElement.parentElement.insertBefore(
           badgeContainer,
-          titleElement.nextSibling,
+          titleElement.nextSibling
         );
       } else {
         titleElement.parentElement.appendChild(badgeContainer);
@@ -76,7 +76,7 @@ export function injectBadgeContainer(
   } catch (error) {
     console.error(
       "[LinkedIn Scam Detector] Error injecting badge container:",
-      error,
+      error
     );
     return null;
   }
@@ -87,7 +87,7 @@ export function injectBadgeContainer(
  */
 export function removeBadgeContainer(jobId: string): void {
   const badge = document.querySelector(
-    `.${BADGE_CONTAINER_CLASS}[${BADGE_CONTAINER_DATA_ATTR}="${jobId}"]`,
+    `.${BADGE_CONTAINER_CLASS}[${BADGE_CONTAINER_DATA_ATTR}="${jobId}"]`
   );
   if (badge) {
     badge.remove();
@@ -103,7 +103,7 @@ export function generateJobId(jobData: { url: string; title: string }): string {
   if (urlMatch?.[1]) {
     return `job-${urlMatch[1]}`;
   }
-  
+
   // Fallback: create hash from title + URL
   const hash = jobData.title + jobData.url;
   let hashValue = 0;
@@ -114,4 +114,3 @@ export function generateJobId(jobData: { url: string; title: string }): string {
   }
   return `job-${Math.abs(hashValue)}`;
 }
-

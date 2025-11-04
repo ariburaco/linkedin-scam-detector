@@ -1,5 +1,6 @@
-import { EXTENSION_NAME } from "@/constants/constants";
 import superjson from "superjson";
+
+import { EXTENSION_NAME } from "@/constants/constants";
 
 const STORAGE_PREFIX = `${EXTENSION_NAME}-`;
 

@@ -17,6 +17,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 ### Week 1: Core Detection + UI
 
 **Days 1-2: Project Setup**
+
 - [x] Set up Plasmo extension in monorepo
 - [ ] Create tRPC router for scam detection
 - [ ] Design Prisma schema (ScanCache, Feedback tables)
@@ -24,6 +25,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 - [ ] Configure environment variables
 
 **Days 3-5: Hybrid Detection System**
+
 - [ ] Implement local rules engine
   - [ ] Email domain check
   - [ ] Keyword pattern matching
@@ -33,6 +35,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 - [ ] Test hybrid flow: local → badge → Gemini → update
 
 **Days 6-7: Risk Report UI**
+
 - [ ] Design and build badge component (🟢🟡🔴)
 - [ ] Build detailed risk report modal
 - [ ] Implement feedback button
@@ -44,6 +47,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 ### Week 2: Polish + Launch
 
 **Days 8-10: Testing & Refinement**
+
 - [ ] Test on 50+ real LinkedIn job postings
 - [ ] Tune Gemini prompts for better accuracy
 - [ ] Fix false positives (target <10%)
@@ -51,6 +55,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 - [ ] Optimize performance (lazy loading, debouncing)
 
 **Days 11-12: Extension Features**
+
 - [ ] Build extension popup (basic stats: scans today, high-risk jobs avoided)
 - [ ] Create simple options page (privacy settings, about, clear cache)
 - [ ] Add first-time onboarding tooltip
@@ -58,6 +63,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 - [ ] Write user-facing documentation
 
 **Days 13-14: Launch Preparation**
+
 - [ ] Create Chrome Web Store listing
   - [ ] Screenshots (5 images showing badge, report, settings)
   - [ ] Description (emphasize privacy-first, AI-powered, free)
@@ -72,6 +78,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 ### MVP Feature Set (Ruthlessly Scoped)
 
 **✅ Building:**
+
 1. Badge display (Green/Yellow/Red indicator)
 2. Local rules engine (instant red flags)
 3. Gemini API integration (deep analysis)
@@ -79,6 +86,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 5. Feedback collection button
 
 **❌ NOT Building:**
+
 - Community reporting system (validate demand first)
 - Company verification (too complex for MVP)
 - User accounts / authentication (not needed for core loop)
@@ -113,10 +121,12 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 #### A. Community Reporting System
 
 **Validation Signal:**
+
 - IF >10% of users submit feedback via "Report Issue" button
 - AND feedback contains requests like "I want to report scams" or "Can others see my reports?"
 
 **THEN Build:**
+
 - Full community reporting flow
 - Aggregated scam warnings ("Reported by 3+ users")
 - Report moderation system
@@ -128,10 +138,12 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 #### B. Company Verification
 
 **Validation Signal:**
+
 - IF >30% of false positive feedback mentions "This company is legitimate"
 - AND users complain about lack of company verification
 
 **THEN Build:**
+
 - Domain ownership verification
 - LinkedIn company page age check
 - Employee count analysis
@@ -144,10 +156,12 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 #### C. Local ML Model (Offline Detection)
 
 **Validation Signal:**
+
 - IF Gemini API costs exceed $200/month
 - OR users complain about slow scan times
 
 **THEN Build:**
+
 - Train lightweight TensorFlow.js model
 - Deploy client-side for instant offline detection
 - Fall back to Gemini for ambiguous cases
@@ -159,10 +173,12 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 #### D. Scan History & Analytics
 
 **Validation Signal:**
+
 - IF users explicitly request "I want to see my past scans"
 - AND >5% of users revisit the extension more than once per day
 
 **THEN Build:**
+
 - Personal scan history page
 - Statistics dashboard (scams avoided, jobs scanned)
 - Export CSV functionality
@@ -174,12 +190,14 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 ### Phase 2 Timeline
 
 **IF validated**, each feature takes approximately:
+
 - Community reporting: 2 weeks
 - Company verification: 1 week
 - Local ML model: 3 weeks (includes training data collection)
 - Scan history: 1 week
 
 **Prioritize by:**
+
 1. Highest user demand (feedback volume)
 2. Reduces false positives
 3. Increases retention (users come back)
@@ -197,6 +215,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 #### 1. Multi-Language Support
 
 **Build IF:** International users request it (>20% non-English speakers)
+
 - Spanish (Latin America market)
 - French (France, Canada)
 - German (Germany market)
@@ -209,6 +228,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 #### 2. Firefox & Safari Extensions
 
 **Build IF:** Users explicitly ask "Is this available on Firefox/Safari?"
+
 - Firefox: 1 week (WebExtensions API)
 - Safari: 2 weeks (Safari Web Extension)
 
@@ -219,6 +239,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 #### 3. Profile Analysis
 
 **Build IF:** Scammers evolve to create convincing company pages
+
 - Analyze recruiter LinkedIn profiles
 - Check network connections
 - Verify employment history
@@ -232,6 +253,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 #### 4. Team/Enterprise Tier
 
 **Build IF:** Recruiting agencies or HR teams reach out
+
 - Multi-user accounts
 - Shared scam database
 - Admin dashboard
@@ -245,6 +267,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 #### 5. Browser-Based Alternative (No Extension)
 
 **Build IF:** LinkedIn starts blocking extensions OR users don't want to install
+
 - Standalone web tool: Paste job description for analysis
 - Same Gemini backend, different UX
 - Slower workflow but no extension risk
@@ -256,6 +279,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 ### Phase 3 Prioritization Framework
 
 **For each feature, ask:**
+
 1. Does this serve the core use case? (scam detection on LinkedIn)
 2. Will users actually use this or just say they want it?
 3. Can we fake it first to validate demand?
@@ -286,6 +310,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 **Fix:** Finish X, ship it, validate demand for Y
 
 **Example:**
+
 - ❌ "We're building company verification, let's also add recruiter profile analysis"
 - ✅ "Ship company verification, see if users ask for recruiter analysis"
 
@@ -297,6 +322,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 **Fix:** Is performance actually a problem users complain about?
 
 **Example:**
+
 - ❌ "Build custom ML model in Phase 1 for faster scans"
 - ✅ "Use Gemini API, optimize only if users complain about speed"
 
@@ -308,6 +334,7 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 **Fix:** Have real users explicitly asked for this?
 
 **Example:**
+
 - ❌ "Add Twitter/LinkedIn share buttons for scam reports"
 - ✅ "Wait for users to request sharing features"
 
@@ -319,11 +346,13 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 
 **Primary:** 1,000 active users within 30 days
 **Secondary:**
+
 - 30%+ report click-through rate (users engage with detailed analysis)
 - <10% false positive rate
 - 50+ feedback submissions
 
 **Learn:**
+
 - Which scam patterns are most common?
 - Do users trust AI analysis?
 - What features do they request?
@@ -334,11 +363,13 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 
 **Primary:** 5,000 active users + $1K MRR
 **Secondary:**
+
 - 2-5% free-to-paid conversion rate
 - <5% monthly churn
 - Weekly active users >50% of total installs
 
 **Learn:**
+
 - Which Phase 2 features drive retention?
 - What causes users to upgrade to Pro?
 - Are false positives decreasing?
@@ -349,11 +380,13 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 
 **Primary:** 50,000 active users + $10K MRR
 **Secondary:**
+
 - 80%+ annual retention
 - LTV > $100 per paid user
 - Organic growth (word-of-mouth, no paid ads)
 
 **Learn:**
+
 - Can we scale without LinkedIn shutting us down?
 - Is the business sustainable?
 - What's the path to $100K ARR?
@@ -381,11 +414,13 @@ This roadmap follows a **validate-before-building** philosophy. Phase 2+ feature
 This roadmap is **intentionally vague** for Phase 2+.
 
 **Why?**
+
 - We don't know what users will actually want until they use Phase 1
 - Planning Phase 3 now is premature
 - Better to ship fast, learn, adapt
 
 **How to use this roadmap:**
+
 1. **Phase 1:** Follow exactly (core loop is clear)
 2. **Phase 2:** Review after MVP launch, prioritize based on real feedback
 3. **Phase 3:** Rewrite entirely based on Phase 2 learnings

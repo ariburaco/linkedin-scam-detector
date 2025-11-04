@@ -2,7 +2,7 @@ import type { LocalRuleFlag } from "./types";
 
 export function salaryAnalyzer(
   salary: string,
-  jobTitle: string,
+  jobTitle: string
 ): LocalRuleFlag[] {
   const flags: LocalRuleFlag[] = [];
 
@@ -39,9 +39,8 @@ export function salaryAnalyzer(
   const maxSalary = Math.max(...amounts);
 
   // Check if entry-level with unrealistic salary
-  const isEntryLevel = /entry|junior|intern|associate|assistant|internship/i.test(
-    jobTitle,
-  );
+  const isEntryLevel =
+    /entry|junior|intern|associate|assistant|internship/i.test(jobTitle);
 
   if (isEntryLevel && minSalary > 150000) {
     flags.push({
@@ -52,7 +51,10 @@ export function salaryAnalyzer(
   }
 
   // Check for unrealistic high salaries (>$200K) for most positions
-  if (minSalary > 200000 && !/senior|executive|director|vp|vice president|ceo|cto|chief/i.test(jobTitle)) {
+  if (
+    minSalary > 200000 &&
+    !/senior|executive|director|vp|vice president|ceo|cto|chief/i.test(jobTitle)
+  ) {
     flags.push({
       type: "unrealistic_salary",
       confidence: "medium",
@@ -84,4 +86,3 @@ export function salaryAnalyzer(
 
   return flags;
 }
-

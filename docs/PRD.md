@@ -30,6 +30,7 @@ LinkedIn job scams cost victims **$501 million in 2024**, with a **300% increase
 6. **Platform Inaction**: Despite reports, scams persist for months
 
 **Quote from Cybersecurity Professional:**
+
 > "If somebody in cybersecurity is having this issue, I can only imagine what people who are not as clued in are dealing with."
 
 ---
@@ -39,18 +40,21 @@ LinkedIn job scams cost victims **$501 million in 2024**, with a **300% increase
 ### Primary Persona: Active Job Seeker
 
 **Demographics:**
+
 - Age: 22-35 years old
 - Status: Recent graduate, career switcher, or remote work seeker
 - LinkedIn usage: Daily, actively applying to 5-10 jobs per week
 - Tech savvy: Comfortable installing Chrome extensions
 
 **Current Pain Points:**
+
 - Spends hours reviewing job postings, unsure which are legitimate
 - Has encountered at least one suspicious posting in the past month
 - Fears missing opportunities while also being cautious of scams
 - No reliable way to verify job posting authenticity
 
 **Success Criteria:**
+
 - Can confidently apply to jobs without fear of scams
 - Saves 2-3 hours per week previously spent researching companies
 - Never falls victim to financial or identity theft scams
@@ -58,15 +62,18 @@ LinkedIn job scams cost victims **$501 million in 2024**, with a **300% increase
 ### Secondary Personas:
 
 **Recent Graduate (High Risk)**
+
 - Less experience identifying scams
 - Desperate for first job opportunity
 - More likely to ignore red flags
 
 **Remote Work Seeker (High Target)**
+
 - Often targeted by "work from home" scams
 - Cryptocurrency and task-based scam exposure
 
 **Career Switcher**
+
 - Unfamiliar with new industry norms
 - May not recognize unrealistic offers
 
@@ -96,17 +103,20 @@ LinkedIn job scams cost victims **$501 million in 2024**, with a **300% increase
 ### Feature 1: Instant Scam Detection Badge
 
 **What it does:**
+
 - Injects visual risk indicator on every LinkedIn job posting
 - Three-tier system: Safe (green), Caution (yellow), Danger (red)
 - Appears immediately when job page loads
 
 **Acceptance Criteria:**
+
 - Badge visible within 500ms of page load
 - Badge positioned consistently across all job posting layouts
 - Badge style matches LinkedIn's design language (non-intrusive)
 - Clicking badge opens detailed report
 
 **Technical Implementation:**
+
 - Content script monitors DOM for job posting elements
 - Extracts job description, company name, salary, requirements
 - Runs local rules engine for instant evaluation
@@ -117,11 +127,13 @@ LinkedIn job scams cost victims **$501 million in 2024**, with a **300% increase
 ### Feature 2: AI-Powered Risk Analysis
 
 **What it does:**
+
 - Sends job posting content to Gemini 2.0 Flash (via Vercel AI SDK) for deep analysis
 - Returns structured risk assessment with reasoning
 - Identifies specific red flags and patterns
 
 **Acceptance Criteria:**
+
 - Analysis completes within 2 seconds
 - Provides 3-5 specific red flags (if detected)
 - Explains WHY each flag is concerning
@@ -130,29 +142,34 @@ LinkedIn job scams cost victims **$501 million in 2024**, with a **300% increase
 **Red Flags Detected:**
 
 **Financial Red Flags:**
+
 - Requests for upfront payment (training, background check, equipment)
 - Unusual payment methods mentioned (Zelle, gift cards, cryptocurrency)
 - Commission-only roles disguised as salaried positions
 - "Investment opportunities" or "start your own business" language
 
 **Communication Red Flags:**
+
 - Personal email domains (Gmail, Yahoo) instead of corporate
 - Requests to communicate via WhatsApp/Telegram
 - Immediate job offers without interview
 - Urgency language ("respond within 24 hours or lose opportunity")
 
 **Compensation Red Flags:**
+
 - Salary 2x+ above market average for role/experience
 - Vague job description with unrealistic pay
 - "Earn $5,000/week working from home"
 
 **Company Red Flags:**
+
 - Company name doesn't match email domain
 - Recently created LinkedIn company page (<3 months old)
 - Few employees or connections listed
 - Generic job descriptions copied across multiple "companies"
 
 **Technical Implementation:**
+
 - Extract job posting text (title, description, requirements, salary)
 - Send to Gemini 2.0 Flash via Vercel AI SDK with specialized prompt
 - Use structured output mode for consistent JSON response (risk_score, flags[], reasoning)
@@ -163,6 +180,7 @@ LinkedIn job scams cost victims **$501 million in 2024**, with a **300% increase
 ### Feature 3: Local Rules Engine (Instant Detection)
 
 **What it does:**
+
 - Runs client-side analysis before LLM call
 - Detects obvious red flags instantly (no API latency)
 - Powers the immediate badge display
@@ -190,12 +208,14 @@ LinkedIn job scams cost victims **$501 million in 2024**, with a **300% increase
    - Flag if professional threshold not met
 
 **Acceptance Criteria:**
+
 - Executes in <100ms
 - No API calls required
 - Catches 60%+ of obvious scams instantly
 - Falls back to LLM for ambiguous cases
 
 **Technical Implementation:**
+
 - Pure JavaScript rules engine
 - Regex patterns for keyword detection
 - LanguageTool.js for basic grammar checking
@@ -206,6 +226,7 @@ LinkedIn job scams cost victims **$501 million in 2024**, with a **300% increase
 ### Feature 4: Detailed Risk Report
 
 **What it does:**
+
 - Expandable panel showing full analysis
 - User-friendly explanations of each red flag
 - Educational content about why flags matter
@@ -240,6 +261,7 @@ Report this posting to LinkedIn directly.
 ```
 
 **Acceptance Criteria:**
+
 - Report opens in modal or side panel
 - Each red flag has icon, title, confidence level, and explanation
 - Clear recommendation at bottom (Apply / Proceed with Caution / Do NOT Apply)
@@ -251,11 +273,13 @@ Report this posting to LinkedIn directly.
 ### Feature 5: Feedback Collection (Validation for Phase 2)
 
 **What it does:**
+
 - Simple feedback button to validate demand for community features
 - Collects user feedback on scan accuracy
 - Helps identify false positives and improve detection
 
 **User Flow:**
+
 1. User clicks "Report Issue with this Scan" button in risk report
 2. Simple modal appears: "Help us improve"
    - [ ] False positive (this job is legitimate)
@@ -265,12 +289,14 @@ Report this posting to LinkedIn directly.
 4. Data used to validate demand for full community reporting in Phase 2
 
 **Acceptance Criteria:**
+
 - Feedback submission takes <5 seconds
 - No user identifiers stored
 - Only job URL hash and feedback type stored
 - Simple UI, non-intrusive
 
 **Technical Implementation:**
+
 - Backend API endpoint: `POST /api/feedback`
 - Store: `job_url_hash`, `feedback_type`, `timestamp`
 - NO community warnings in Phase 1 (validate demand first)
@@ -282,42 +308,51 @@ Report this posting to LinkedIn directly.
 **These features are out of scope for the initial 3-week build:**
 
 ❌ **User Accounts / Authentication**
+
 - No login required for MVP
 - All features work anonymously
 - Extension settings stored locally
 
 ❌ **Detailed Analytics Dashboard**
+
 - No graphs of scam trends over time
 - No personal history of scanned jobs
 - Focus on immediate detection only
 
 ❌ **Company Verification Database**
+
 - No cross-referencing with business registries
 - No domain ownership verification
 - Too complex for MVP, defer to Phase 2
 
 ❌ **Community Reporting System**
+
 - Full community scam reporting deferred to Phase 2
 - Must validate demand via feedback collection first
 
 ❌ **Profile Analysis**
+
 - No analysis of recruiter LinkedIn profiles
 - No network connection verification
 - Scope limited to job postings only
 
 ❌ **Browser Extension for Firefox/Safari**
+
 - Chrome extension only for MVP
 - Other browsers in Phase 3 if validated
 
 ❌ **Mobile App**
+
 - Extension works on desktop Chrome only
 - Mobile users must use desktop browser
 
 ❌ **Advanced ML Model Training**
+
 - MVP uses LLM API, not custom trained model
 - Local model training deferred to Phase 2
 
 ❌ **Internationalization**
+
 - English language only for MVP
 - Additional languages considered in Phase 3 based on user demand
 
@@ -330,6 +365,7 @@ Report this posting to LinkedIn directly.
 **Target:** 1,000 active users within 30 days of launch
 
 **Measurement:**
+
 - Active user = scanned at least 1 job posting in past 7 days
 - Track via extension telemetry (privacy-respecting)
 - Anonymous UUID per installation
@@ -339,16 +375,19 @@ Report this posting to LinkedIn directly.
 ### Secondary Metrics:
 
 **Engagement:**
+
 - **Scans per user per week:** Target 5+ (indicates active job searching)
 - **Report click-through rate:** Target 30% (users viewing detailed analysis)
 - **Feedback submissions:** Target 50+ in first month (validates Phase 2 demand)
 
 **Detection Effectiveness:**
+
 - **Red flags detected:** Track distribution (how many high/medium/low risk)
 - **False positive rate:** Target <10% (users can mark "False positive")
 - **Feedback engagement:** % of users who provide feedback on scans
 
 **Conversion (for monetization):**
+
 - **Free tier usage:** Track how many users hit 10 scans/day limit
 - **Upgrade interest:** "Upgrade to Pro" button clicks
 - **Email signups:** For launch announcements (optional feature)
@@ -362,6 +401,7 @@ Report this posting to LinkedIn directly.
 📊 **Learning = Distribution of scam types detected (informs Phase 2 priorities)**
 
 ❌ **Failure = <200 active users OR >30% false positive rate**
+
 - If this happens: User interviews to understand why (bad UX? Not valuable? Technical issues?)
 
 ---
@@ -371,6 +411,7 @@ Report this posting to LinkedIn directly.
 ### Chrome Extension (Plasmo Framework)
 
 **Why Plasmo:**
+
 - Already used in existing monorepo (`apps/chrome-extension`)
 - Built-in HMR and TypeScript support
 - Simplified content script injection
@@ -408,11 +449,13 @@ Report this posting to LinkedIn directly.
 export const scamDetectorRouter = router({
   // Scan a job posting
   scanJob: publicProcedure
-    .input(z.object({
-      jobText: z.string(),
-      jobUrl: z.string(),
-      companyName: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        jobText: z.string(),
+        jobUrl: z.string(),
+        companyName: z.string().optional(),
+      }),
+    )
     .mutation(async ({ input }) => {
       // Call Gemini 2.0 Flash via Vercel AI SDK
       // Run local rules
@@ -421,11 +464,13 @@ export const scamDetectorRouter = router({
 
   // Submit feedback
   submitFeedback: publicProcedure
-    .input(z.object({
-      jobUrlHash: z.string(),
-      feedbackType: z.enum(['false_positive', 'false_negative', 'other']),
-      details: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        jobUrlHash: z.string(),
+        feedbackType: z.enum(["false_positive", "false_negative", "other"]),
+        details: z.string().optional(),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       // Store feedback in database
       // Rate limiting check
@@ -464,6 +509,7 @@ model ScanCache {
 ### External Services
 
 **Gemini 2.0 Flash (via Vercel AI SDK)**
+
 - Model: `gemini-2.0-flash-exp` (fastest, most cost-effective)
 - Vercel AI SDK provides unified interface and streaming support
 - Structured output mode for consistent JSON responses
@@ -471,6 +517,7 @@ model ScanCache {
 - Cost: ~$0.0001 per job scan (30x cheaper than alternatives)
 
 **Storage:**
+
 - Chrome Extension Storage API (local settings)
 - PostgreSQL via Prisma (feedback, scan cache)
 - No user data stored (privacy-first)
@@ -528,6 +575,7 @@ model ScanCache {
 ### Data We Collect (Minimal)
 
 **Anonymous Usage Telemetry:**
+
 - Number of scans performed
 - Risk score distribution
 - Feature usage (clicks on reports, submissions)
@@ -535,6 +583,7 @@ model ScanCache {
 - NO user identifiers, NO LinkedIn data, NO browsing history
 
 **Community Reports:**
+
 - Job URL hash (SHA-256, irreversible)
 - Report type (category only)
 - Timestamp
@@ -571,18 +620,21 @@ model ScanCache {
 ### Week 1: Core Detection + UI
 
 **Days 1-2: Project Setup**
+
 - Set up Plasmo extension in monorepo
 - Create tRPC router for scam detection
 - Design Prisma schema (ScanCache, Feedback tables only)
 - Set up Vercel AI SDK with Gemini 2.0 Flash
 
 **Days 3-5: Hybrid Detection System**
+
 - Implement local rules engine (email, keywords, salary patterns)
 - Build Gemini API integration with structured output
 - Create badge injection system on LinkedIn job postings
 - Test hybrid flow: local → badge → Gemini → update
 
 **Day 6-7: Risk Report UI**
+
 - Design and build badge component (green/yellow/red)
 - Build detailed risk report modal
 - Implement feedback button
@@ -593,6 +645,7 @@ model ScanCache {
 ### Week 2: Polish + Launch
 
 **Days 8-10: Testing & Refinement**
+
 - Test on 50+ real LinkedIn job postings
 - Tune prompts for better accuracy
 - Fix false positives
@@ -600,12 +653,14 @@ model ScanCache {
 - Optimize performance (lazy loading, debouncing)
 
 **Days 11-12: Extension Features**
+
 - Build extension popup (basic stats)
 - Create simple options page (privacy settings, about)
 - Add first-time onboarding tooltip
 - Implement error handling and fallback logic
 
 **Days 13-14: Launch Preparation**
+
 - Chrome Web Store listing (screenshots, description, privacy policy)
 - Test on Windows, Mac, Linux
 - Beta test with 5-10 users

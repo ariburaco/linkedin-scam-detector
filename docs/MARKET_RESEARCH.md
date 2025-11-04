@@ -60,14 +60,17 @@ This document consolidates all market research validating the LinkedIn Scam Dete
 ### Specific Complaints from Job Seekers
 
 **Financial & Emotional Impact:**
+
 - "They claim interviews are in London, ask you to send money to their agency for travel costs."
 - "Especially the second email was very convincingly prepared... I hope no one believes it and suffers financial or emotional loss."
 - "They're getting your information through one fake listing then approaching you 3-4 weeks later with an incredibly good offer. Apart from financial manipulation, it really disappoints people emotionally."
 
 **Quote from Cybersecurity Professional:**
+
 > "I've worked in cybersecurity... If somebody in cybersecurity is having this issue, I can only imagine what people who are not as clued in are dealing with."
 
 **Quote from Identity Theft Resource Center CEO:**
+
 > "These fakes look so real and so legitimate, it's almost impossible for would-be job seekers to tell the difference."
 
 ### Common Scam Patterns
@@ -90,10 +93,12 @@ This document consolidates all market research validating the LinkedIn Scam Dete
 
 **Status:** Recently added to Chrome Web Store
 **Features:**
+
 - Uses LLM to analyze job descriptions
 - Returns "Legit/Suspicious/Scam" ratings
 
 **Weaknesses:**
+
 - New entrant with minimal traction
 - Low user count (<1,000 estimated)
 - Basic UI, no detailed explanations
@@ -109,6 +114,7 @@ This document consolidates all market research validating the LinkedIn Scam Dete
 **Features:** Filters spam messages in LinkedIn inbox only
 
 **Why Not a Threat:**
+
 - Only addresses messages, NOT job postings
 - Different use case
 - Very low user base
@@ -119,10 +125,12 @@ This document consolidates all market research validating the LinkedIn Scam Dete
 
 **Status:** Established player
 **Features:**
+
 - Identifies fake personas online, including fraudulent LinkedIn profiles
 - Pricing: $3.99/month (individual)
 
 **Weaknesses:**
+
 - NOT LinkedIn-specific
 - Broad fraud detection, not job-focused
 - No job posting analysis
@@ -137,6 +145,7 @@ This document consolidates all market research validating the LinkedIn Scam Dete
 **Features:** ML-based real-time protection against scams and phishing
 
 **Weaknesses:**
+
 - Not specialized for LinkedIn or job scams
 - Generic scam detector
 
@@ -163,14 +172,15 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 
 **Academic Research Demonstrates High Accuracy:**
 
-| Model | Accuracy | Notes |
-|-------|----------|-------|
-| Random Forest | 96.4% | Traditional ML approach |
-| Bi-LSTM | 98.71% | Deep learning, 0.91 ROC AUC |
-| Extra Trees + ADASYN | 99.9% | Best performance |
-| TF-IDF + Bag-of-Words | Proven effective | Feature extraction |
+| Model                 | Accuracy         | Notes                       |
+| --------------------- | ---------------- | --------------------------- |
+| Random Forest         | 96.4%            | Traditional ML approach     |
+| Bi-LSTM               | 98.71%           | Deep learning, 0.91 ROC AUC |
+| Extra Trees + ADASYN  | 99.9%            | Best performance            |
+| TF-IDF + Bag-of-Words | Proven effective | Feature extraction          |
 
 **Key Patterns ML Can Detect:**
+
 - Keyword frequency anomalies
 - Email domain types (Gmail vs. corporate)
 - Salary disclosure patterns
@@ -182,11 +192,13 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 ### LLM Integration
 
 **Proven Models for Fraud Detection:**
+
 - **GPT-3.5, GPT-4, Claude:** All demonstrate effectiveness in identifying phishing/scam patterns
 - **Gemini 2.0 Flash:** Fastest and cheapest option (~$0.0001/scan)
 - **Mistral Large:** Best performance on fraud detection benchmarks
 
 **API Integration:**
+
 - Available via Vercel AI SDK
 - Low cost ($0.0001-0.003 per scan)
 - Fast response (<2 seconds)
@@ -194,6 +206,7 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 ### Community Reporting Feasibility
 
 **Scam Sniffer** proves crowdsourced scam databases work:
+
 - Web3-focused but same principles apply
 - Trusted by major platforms (Binance, Phantom)
 - Real-time malicious detection via community data
@@ -239,6 +252,7 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 ### Privacy & GDPR Compliance
 
 **Requirements:**
+
 - Comprehensive Privacy Policy
 - Explicit user consent for data processing
 - Cannot transfer LinkedIn data to external servers without consent
@@ -264,9 +278,11 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 #### Freemium (Most Common)
 
 **Free tier:**
+
 - Basic scam detection (5-10 scans/day)
 
 **Premium tier:** $4.99-$9.99/month
+
 - Unlimited scans
 - Detailed risk reports
 - Company verification
@@ -274,13 +290,14 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 
 #### Market Benchmarks
 
-| Extension | Revenue | Model |
-|-----------|---------|-------|
-| GMass | $130K/month | Subscription |
-| Grammarly | $125M/year | Freemium + Premium |
-| Night Eye | $3.1K/month | Yearly + Lifetime |
+| Extension | Revenue     | Model              |
+| --------- | ----------- | ------------------ |
+| GMass     | $130K/month | Subscription       |
+| Grammarly | $125M/year  | Freemium + Premium |
+| Night Eye | $3.1K/month | Yearly + Lifetime  |
 
 **Key Insights:**
+
 - 70-85% profit margins typical
 - Freemium converts 2-5% to paid
 - Successful extensions sell for 40-60x monthly profit
@@ -289,11 +306,13 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 ### Recommended Model
 
 **Free Tier:**
+
 - 10 job scans per day
 - Basic "Safe/Warning/Danger" indicator
 - Access to feedback system
 
 **Pro Tier ($7.99/month or $79/year):**
+
 - Unlimited scans
 - Detailed risk analysis with reasoning
 - Company verification checks (Phase 2)
@@ -301,6 +320,7 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 - Export scan history
 
 **Team Tier ($29.99/month):**
+
 - Up to 10 users
 - Shared feedback database
 - Team analytics dashboard (Phase 3)
@@ -334,26 +354,31 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 ### Primary Market: Global English-Speaking Job Seekers
 
 **United States:**
+
 - 165M LinkedIn users
 - ~8M active job seekers per month
 - Potential market: 500K-1M users
 
 **United Kingdom:**
+
 - 35M LinkedIn users
 - ~1.5M active job seekers per month
 - Potential market: 100K-200K users
 
 **Canada:**
+
 - 20M LinkedIn users
 - ~800K active job seekers per month
 - Potential market: 50K-100K users
 
 **Australia:**
+
 - 13M LinkedIn users
 - ~600K active job seekers per month
 - Potential market: 40K-80K users
 
 **India:**
+
 - 101M LinkedIn users
 - ~5M active job seekers per month
 - Potential market: 200K-400K users
@@ -361,11 +386,13 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 ### Total Addressable Market (TAM)
 
 **Conservative Estimate:**
+
 - 1M active job seekers willing to install extension
 - 2-5% convert to paid ($7.99/month)
 - **Revenue potential:** $20K-$40K/month at scale
 
 **Realistic Year 1 Target:**
+
 - 10K active users
 - 200-500 paid subscribers
 - **$1,600-$4,000 MRR**
@@ -398,6 +425,7 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 ### BUILD IT with Strategic Safeguards
 
 **Reasons to Build:**
+
 1. Validated $501M+ problem with clear user pain
 2. Minimal competition (only 1 weak competitor)
 3. Technical feasibility proven by existing extensions
@@ -405,6 +433,7 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 5. High emotional value (prevents financial/emotional harm)
 
 **Risk Mitigation:**
+
 1. Read-only approach (no automation)
 2. Privacy-first (local processing, minimal data collection)
 3. Quick MVP (2 weeks to validate)
@@ -414,12 +443,14 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 **Success Probability:** 70%
 
 **Why 70%:**
+
 - Problem validation: 100% ✓
 - Technical execution: 90% ✓
 - Monetization: 85% ✓
 - LinkedIn enforcement risk: -30% ⚠️
 
 **If LinkedIn bans extension:**
+
 - Pivot to standalone web tool (paste job description for analysis)
 - Target recruiters/HR teams instead of job seekers
 - Build API for other extensions to integrate
@@ -429,22 +460,26 @@ The only direct competitor (LinkedIn Scam Detector extension) is early-stage wit
 ## Sources & Citations
 
 ### Statistics
+
 - Federal Trade Commission (FTC) 2024 Fraud Reports
 - Better Business Bureau 2024 Risk Report
 - LinkedIn Transparency Reports (H1 2024)
 - NBC News investigative reporting (2024)
 
 ### Technical Research
+
 - "Detection of Fake Job Postings by Utilizing Machine Learning and NLP" (Springer, 2021)
 - Chrome Extension Developer Documentation (2024)
 - Academic papers on LLM fraud detection (ArXiv, 2024)
 
 ### Competitor Analysis
+
 - Chrome Web Store statistics (Chrome-Stats.com)
 - SEON Fraud Detection Extension Comparison (2024)
 - Extension revenue data (Starter Story, ExtensionPay)
 
 ### Policy Research
+
 - LinkedIn User Agreement & API Terms (2024)
 - Chrome Web Store Program Policies (updated Sept 2024)
 - GDPR compliance requirements for browser extensions

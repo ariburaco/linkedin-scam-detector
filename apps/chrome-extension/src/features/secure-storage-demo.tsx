@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { SecureStorage } from "@plasmohq/storage/secure";
+import { useEffect, useState } from "react";
 
 /**
  * Example component demonstrating the use of Plasmo's secure storage API

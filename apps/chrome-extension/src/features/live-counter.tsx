@@ -1,6 +1,7 @@
-import type { RequestBody, ResponseBody } from "@/background/ports/counter";
-import { useEffect, useState } from "react";
 import { usePort } from "@plasmohq/messaging/hook";
+import { useEffect, useState } from "react";
+
+import type { RequestBody, ResponseBody } from "@/background/ports/counter";
 
 export function LiveCounter() {
   const [error, setError] = useState<string | null>(null);

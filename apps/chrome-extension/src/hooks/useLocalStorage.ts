@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import { LocalStorage } from "@/utils/localStorage";
 
 export function useLocalStorage<T>(
