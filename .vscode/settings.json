@@ -1,0 +1,53 @@
+{
+  "editor.formatOnSave": true,
+  "tailwindCSS.experimental.classRegex": [
+    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+    ["cx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+  ],
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "eslint.rules.customizations": [{ "rule": "*", "severity": "warn" }],
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "eslint.workingDirectories": [
+    "apps/chrome-extension",
+    "apps/web",
+    "packages/api",
+    "packages/auth",
+    "packages/config-eslint-prettier",
+    "packages/db",
+    "packages/shared"
+  ],
+  "typescript.preferences.quoteStyle": "double",
+  "typescript.suggest.autoImports": true,
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.patterns": {
+    "*.ts": "${capture}.js",
+    "*.tsx": "${capture}.js",
+    "package.json": "package-lock.json,bun.lockb,yarn.lock"
+  },
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": true,
+  "editor.inlineSuggest.enabled": true,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.next": true,
+    "**/.plasmo": true,
+    "**/.out": true,
+    "**/coverage": true
+  }
+}
