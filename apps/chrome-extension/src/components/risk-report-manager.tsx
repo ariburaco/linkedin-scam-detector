@@ -17,40 +17,35 @@ export function RiskReportManager() {
 
   useEffect(() => {
     const handleOpenReport = (event: CustomEvent) => {
-      const { jobId, container } = event.detail as {
+      const { jobData, localResult, geminiResult } = event.detail as {
         jobId: string;
-        container: HTMLElement;
+        jobData: JobData;
+        localResult: LocalRulesResult;
+        geminiResult?: {
+          riskScore: number;
+          riskLevel: "safe" | "caution" | "danger";
+          flags: Array<{
+            type: string;
+            confidence: "low" | "medium" | "high";
+            message: string;
+            reasoning?: string;
+          }>;
+          summary?: string;
+          source: "gemini" | "cache" | "fallback";
+        };
       };
 
-      // Extract data from container attributes
-      const jobDataAttr = container.getAttribute("data-job-data");
-      const localResultAttr = container.getAttribute("data-local-result");
-      const geminiResultAttr = container.getAttribute("data-gemini-result");
-
-      if (!jobDataAttr || !localResultAttr) {
-        console.error("[Risk Report Manager] Missing required data attributes");
+      if (!jobData || !localResult) {
+        console.error("[Risk Report Manager] Missing required data");
         return;
       }
 
-      try {
-        const jobData = JSON.parse(jobDataAttr) as JobData;
-        const localResult = JSON.parse(localResultAttr) as LocalRulesResult;
-        const geminiResult = geminiResultAttr
-          ? (JSON.parse(geminiResultAttr) as RiskReportData["geminiResult"])
-          : undefined;
-
-        setReportData({
-          jobData,
-          localResult,
-          geminiResult,
-        });
-        setIsOpen(true);
-      } catch (error) {
-        console.error(
-          "[Risk Report Manager] Error parsing report data:",
-          error
-        );
-      }
+      setReportData({
+        jobData,
+        localResult,
+        geminiResult,
+      });
+      setIsOpen(true);
     };
 
     // Listen for custom event from badge clicks
