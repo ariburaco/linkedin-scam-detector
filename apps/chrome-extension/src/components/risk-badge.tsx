@@ -64,13 +64,18 @@ export function RiskBadge({
       onClick={isClickable ? onClick : undefined}
       disabled={!isClickable}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium shadow-sm transition-all duration-200",
+        // Match LinkedIn button sizing: height ~40px, padding px-4 py-2
+        "inline-flex items-center justify-center gap-2",
+        "h-10 px-4 py-2",
+        "rounded-full border font-medium shadow-sm",
+        "text-sm leading-5",
+        "transition-all duration-200",
         config.color,
         config.textColor,
         config.borderColor,
         isClickable && "cursor-pointer",
         isClickable && config.hover,
-        isClickable && "hover:shadow-md hover:-translate-y-0.5 active:translate-y-0",
+        isClickable && "hover:shadow-md active:shadow-sm",
         !isClickable && "cursor-default",
         isAnimating && "animate-pulse",
         className
@@ -78,10 +83,10 @@ export function RiskBadge({
       aria-label={`Risk level: ${config.label}${riskScore ? ` (${riskScore}/100)` : ""}`}
       title={`Risk level: ${config.label}${riskScore ? ` - Score: ${riskScore}/100` : ""}. Click for details.`}
     >
-      <Icon className={cn("size-3.5 shrink-0", isAnimating && "animate-spin")} />
-      <span className="whitespace-nowrap font-semibold">{config.label}</span>
+      <Icon className={cn("size-4 shrink-0", isAnimating && "animate-spin")} />
+      <span className="font-semibold whitespace-nowrap">{config.label}</span>
       {riskScore !== undefined && riskLevel !== "loading" && (
-        <span className="text-[11px] opacity-90 font-medium">({riskScore})</span>
+        <span className="text-sm font-medium opacity-90">({riskScore})</span>
       )}
     </button>
   );

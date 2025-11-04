@@ -176,7 +176,11 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
 export default function LinkedInJobBadge() {
   return (
     <>
-      <JobRiskBadge />
+      {/* Badge rendered inline with buttons - match height and align */}
+      <div className="ml-2 flex h-10 items-center">
+        <JobRiskBadge />
+      </div>
+      {/* RiskReportManager for dialogs - rendered separately */}
       <RiskReportManager />
     </>
   );
