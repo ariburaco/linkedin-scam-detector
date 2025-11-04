@@ -25,11 +25,23 @@ export const scanJobCacheMiddleware: any = createCacheMiddleware({
   getCacheKey(path, rawInput) {
     const jobUrl = (rawInput as { jobUrl: string }).jobUrl;
     if (jobUrl) {
-      const jobUrlHash = createHash("sha256").update(jobUrl).digest("hex");
-      return `${path}:${jobUrlHash}`;
+      const currentJobId = parseCurrentJobId(jobUrl);
+      return `${path}:${currentJobId}`;
     }
-
-    const fullKey = `${path}:${rawInput}`;
-    return fullKey;
+    return `${path}:${jobUrl}`;
   },
 });
+
+function parseCurrentJobId(url: string): string | null {
+  // https://www.linkedin.com/jobs/collections/recommended/?currentJobId=4331180022&start=24
+  // https://www.linkedin.com/jobs/search/?currentJobId=4299578137&distance=25&geoId=101950005&keywords=yaz%C4%B1l%C4%B1m&origin=JOB_COLLECTION_PAGE_KEYWORD_HISTORY&refresh=true
+
+  try {
+    const urlObj = new URL(url);
+    const currentJobId = urlObj.searchParams.get("currentJobId");
+    console.log("🚀 ~ parseCurrentJobId ~ currentJobId:", currentJobId);
+    return currentJobId ?? null;
+  } catch (error) {
+    return null;
+  }
+}
