@@ -2,7 +2,6 @@ import cssText from "data-text:~style.css";
 import type { PlasmoCSConfig, PlasmoGetInlineAnchor } from "plasmo";
 
 import { JobRiskBadge } from "@/components/job-risk-badge";
-import { RiskReportManager } from "@/components/risk-report-manager";
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.linkedin.com/jobs/*"],
@@ -73,12 +72,8 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
 /**
  * Content script for single job posting pages
  * Uses Plasmo's getInlineAnchor to automatically mount the badge
+ * Note: RiskReportManager is handled by linkedin-search-badge.tsx to avoid duplicate dialogs
  */
 export default function LinkedInJobBadge() {
-  return (
-    <>
-      <JobRiskBadge />
-      <RiskReportManager />
-    </>
-  );
+  return <JobRiskBadge />;
 }

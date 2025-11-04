@@ -1,3 +1,4 @@
+import cssText from "data-text:~style.css";
 import type { PlasmoCSConfig } from "plasmo";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -13,6 +14,25 @@ import {
 export const config: PlasmoCSConfig = {
   matches: ["https://www.linkedin.com/jobs/*"],
   run_at: "document_end",
+};
+
+// Define CSS for Shadow DOM
+export const getStyle = (): HTMLStyleElement => {
+  const baseFontSize = 16;
+
+  let updatedCssText = cssText.replaceAll(":root", ":host(plasmo-csui)");
+  const remRegex = /([\d.]+)rem/g;
+  updatedCssText = updatedCssText.replace(remRegex, (match, remValue) => {
+    const pixelsValue = parseFloat(remValue) * baseFontSize;
+
+    return `${pixelsValue}px`;
+  });
+
+  const styleElement = document.createElement("style");
+
+  styleElement.textContent = updatedCssText;
+
+  return styleElement;
 };
 
 /**

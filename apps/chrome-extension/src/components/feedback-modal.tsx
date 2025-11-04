@@ -1,6 +1,10 @@
 import { sendToBackground } from "@plasmohq/messaging";
 import { useState } from "react";
 
+import type {
+  SubmitFeedbackRequestBody,
+  SubmitFeedbackResponseBody,
+} from "@/background/messages/submit-feedback";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,11 +17,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-
-import type {
-  SubmitFeedbackRequestBody,
-  SubmitFeedbackResponseBody,
-} from "@/background/messages/submit-feedback";
 
 export type FeedbackType = "false_positive" | "false_negative" | "other";
 
@@ -34,9 +33,7 @@ export function FeedbackModal({
   jobUrl,
   onSubmit,
 }: FeedbackModalProps) {
-  const [feedbackType, setFeedbackType] = useState<FeedbackType | undefined>(
-    undefined
-  );
+  const [feedbackType, setFeedbackType] = useState<FeedbackType | "">("");
   const [details, setDetails] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -76,7 +73,7 @@ export function FeedbackModal({
         onOpenChange(false);
         // Reset form
         setTimeout(() => {
-          setFeedbackType(undefined);
+          setFeedbackType("");
           setDetails("");
           setIsSubmitted(false);
         }, 300);
@@ -95,7 +92,7 @@ export function FeedbackModal({
       onOpenChange(false);
       // Reset form after close animation
       setTimeout(() => {
-        setFeedbackType(undefined);
+        setFeedbackType("");
         setDetails("");
         setIsSubmitted(false);
       }, 300);
@@ -118,7 +115,7 @@ export function FeedbackModal({
             <p className="text-sm font-medium text-green-600 dark:text-green-400">
               Thank you for your feedback!
             </p>
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="text-muted-foreground mt-2 text-xs">
               Your report helps us improve scam detection.
             </p>
           </div>
@@ -126,9 +123,7 @@ export function FeedbackModal({
           <div className="space-y-4 py-4">
             <RadioGroup
               value={feedbackType}
-              onValueChange={(value) =>
-                setFeedbackType(value as FeedbackType)
-              }
+              onValueChange={(value) => setFeedbackType(value as FeedbackType)}
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="false_positive" id="false_positive" />
@@ -210,4 +205,3 @@ export function FeedbackModal({
     </Dialog>
   );
 }
-
