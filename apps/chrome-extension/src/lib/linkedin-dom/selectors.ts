@@ -14,8 +14,10 @@ export const SELECTORS = {
   ],
 
   // Individual job posting page selectors
+  // Collections pages use .jobs-details__main-content with --single-pane and full-width classes
   jobPosting: [
-    ".jobs-details__main-content",
+    ".jobs-details__main-content", // Primary selector for collections/single-pane view
+    ".jobs-details__main-content--single-pane", // Collections page variant
     ".jobs-details-top-card",
     "[data-job-id]",
   ],

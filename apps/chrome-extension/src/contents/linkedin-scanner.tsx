@@ -297,14 +297,21 @@ export default function LinkedInScanner() {
    * Find and process all job elements on the page
    */
   const scanPageForJobs = () => {
-    // For individual job posting pages
+    // For individual job posting pages (including collections pages)
     if (isJobPostingPage()) {
       const jobData = extractJobDataFromPage();
       if (jobData) {
         const jobId = generateJobId(jobData);
         if (!processedJobsRef.current.has(jobId)) {
-          // Use the document body as the container for individual pages
-          processJobElement(document.body);
+          // Find the job container element for badge injection
+          // Collections pages use .jobs-details__main-content
+          const jobContainer =
+            document.querySelector(".jobs-details__main-content") ||
+            document.querySelector(
+              ".job-details-jobs-unified-top-card__container--two-pane"
+            ) ||
+            document.body;
+          processJobElement(jobContainer as HTMLElement);
         }
       }
       return;
@@ -391,6 +398,7 @@ export default function LinkedInScanner() {
   }, []);
 
   // Rescan when URL changes (SPA navigation)
+  // This handles both pathname changes and query parameter changes (e.g., currentJobId)
   useEffect(() => {
     const handleLocationChange = () => {
       // Reset processed jobs for new page
@@ -401,14 +409,28 @@ export default function LinkedInScanner() {
       }, 500);
     };
 
-    // Watch for URL changes
+    // Track both URL and search params to detect collections page navigation
     let lastUrl = window.location.href;
+    let lastPathname = window.location.pathname;
+    let lastSearch = window.location.search;
+
     const urlCheckInterval = setInterval(() => {
-      if (window.location.href !== lastUrl) {
-        lastUrl = window.location.href;
+      const currentUrl = window.location.href;
+      const currentPathname = window.location.pathname;
+      const currentSearch = window.location.search;
+
+      // Detect any URL change (including query parameters like currentJobId)
+      if (
+        currentUrl !== lastUrl ||
+        currentPathname !== lastPathname ||
+        currentSearch !== lastSearch
+      ) {
+        lastUrl = currentUrl;
+        lastPathname = currentPathname;
+        lastSearch = currentSearch;
         handleLocationChange();
       }
-    }, 1000);
+    }, 500); // Check more frequently for better SPA navigation detection
 
     return () => {
       clearInterval(urlCheckInterval);

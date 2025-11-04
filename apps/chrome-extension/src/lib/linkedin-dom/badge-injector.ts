@@ -96,12 +96,26 @@ export function removeBadgeContainer(jobId: string): void {
 
 /**
  * Generate a unique ID for a job based on its URL or title
+ * Handles both direct job view URLs and collections pages with currentJobId
  */
 export function generateJobId(jobData: { url: string; title: string }): string {
-  // Use URL hash or create hash from title + URL
+  // Extract job ID from URL - supports multiple formats:
+  // 1. Direct view: /jobs/view/123456
+  // 2. Collections: /jobs/collections/recommended/?currentJobId=123456
   const urlMatch = jobData.url.match(/\/jobs\/view\/(\d+)/);
   if (urlMatch?.[1]) {
     return `job-${urlMatch[1]}`;
+  }
+
+  // Check for currentJobId in query parameters (collections pages)
+  try {
+    const urlObj = new URL(jobData.url);
+    const currentJobId = urlObj.searchParams.get("currentJobId");
+    if (currentJobId) {
+      return `job-${currentJobId}`;
+    }
+  } catch {
+    // Invalid URL, fall through to hash generation
   }
 
   // Fallback: create hash from title + URL

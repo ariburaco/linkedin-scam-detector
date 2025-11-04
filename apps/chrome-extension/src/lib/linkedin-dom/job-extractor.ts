@@ -114,10 +114,29 @@ export function isJobSearchPage(): boolean {
 
 /**
  * Check if we're on an individual job posting page
+ * This includes:
+ * - Direct job view pages: /jobs/view/123456
+ * - Collections pages with currentJobId: /jobs/collections/recommended/?currentJobId=123456
  */
 export function isJobPostingPage(): boolean {
-  return (
-    window.location.pathname.includes("/jobs/view/") ||
-    !!window.location.pathname.match(/\/jobs\/view\/\d+/)
-  );
+  const pathname = window.location.pathname;
+  const searchParams = new URLSearchParams(window.location.search);
+
+  // Check for direct job view URL
+  if (
+    pathname.includes("/jobs/view/") ||
+    !!pathname.match(/\/jobs\/view\/\d+/)
+  ) {
+    return true;
+  }
+
+  // Check for collections page with currentJobId query parameter
+  if (
+    pathname.includes("/jobs/collections/") &&
+    searchParams.has("currentJobId")
+  ) {
+    return true;
+  }
+
+  return false;
 }
