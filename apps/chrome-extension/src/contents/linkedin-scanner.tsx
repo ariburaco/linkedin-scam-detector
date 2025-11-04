@@ -1,14 +1,16 @@
 import { sendToBackground } from "@plasmohq/messaging";
 import type { PlasmoCSConfig } from "plasmo";
+import * as React from "react";
 import { useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
 
 import type {
   ScanJobRequestBody,
   ScanJobResponseBody,
 } from "@/background/messages/scan-job";
-import { BadgeMount } from "@/components/badge-mount";
+import { RiskBadge } from "@/components/risk-badge";
+import type { RiskLevel } from "@/components/risk-badge";
 import { RiskReportManager } from "@/components/risk-report-manager";
-import { updateBadge } from "@/lib/badge-updater";
 import {
   extractJobDataFromCard,
   extractJobDataFromPage,
@@ -22,7 +24,6 @@ import type { JobData } from "@/lib/linkedin-dom/types";
 export const config: PlasmoCSConfig = {
   matches: ["https://www.linkedin.com/jobs/*"],
   run_at: "document_end",
-  world: "MAIN",
 };
 
 /**
@@ -43,14 +44,38 @@ export default function LinkedInScanner() {
   }, [processedJobs]);
 
   // Set up listener for final result messages from background
+  // In ISOLATED world, chrome.runtime.onMessage is available
   useEffect(() => {
-    const handleFinalResult = (
-      message: any,
+    const handleMessage = (
+      message: {
+        type?: string;
+        jobId?: string;
+        final?: {
+          riskScore: number;
+          riskLevel: "safe" | "caution" | "danger";
+          flags: Array<{
+            type: string;
+            confidence: "low" | "medium" | "high";
+            message: string;
+            reasoning?: string;
+          }>;
+          summary?: string;
+          source: "gemini" | "cache" | "fallback";
+        };
+        error?: string;
+      },
       _sender: chrome.runtime.MessageSender,
-      sendResponse: (response?: any) => void
+      sendResponse: (response?: { success: boolean; error?: string }) => void
     ) => {
       if (message.type === "scam-detector:final-result") {
         const { jobId, final, error } = message;
+        if (!jobId) {
+          console.warn(
+            "[LinkedIn Scam Detector] Received message without jobId"
+          );
+          sendResponse({ success: false, error: "Missing jobId" });
+          return false;
+        }
         const badgeContainer = badgeContainersRef.current.get(jobId);
 
         if (!badgeContainer) {
@@ -65,7 +90,7 @@ export default function LinkedInScanner() {
           const { riskLevel, riskScore, flags, summary, source } = final;
 
           // Update badge with final result
-          updateBadge(badgeContainer, riskLevel, riskScore);
+          mountBadgeToContainer(badgeContainer, riskLevel, riskScore);
 
           // Store final result
           badgeContainer.setAttribute(
@@ -97,12 +122,63 @@ export default function LinkedInScanner() {
       return false;
     };
 
-    chrome.runtime.onMessage.addListener(handleFinalResult);
+    chrome.runtime.onMessage.addListener(handleMessage);
 
     return () => {
-      chrome.runtime.onMessage.removeListener(handleFinalResult);
+      chrome.runtime.onMessage.removeListener(handleMessage);
     };
   }, []);
+
+  /**
+   * Mount or update badge in a container
+   * Creates React root if needed, or reuses existing root
+   */
+  const mountBadgeToContainer = (
+    container: HTMLElement,
+    riskLevel: RiskLevel,
+    riskScore?: number
+  ) => {
+    // Update data attributes
+    container.setAttribute("data-risk-level", riskLevel);
+    if (riskScore !== undefined) {
+      container.setAttribute("data-risk-score", String(riskScore));
+    }
+
+    // Get or create React root
+    // Store root on container for reuse during updates
+    interface ContainerWithRoot extends HTMLElement {
+      __badgeRoot?: ReturnType<typeof createRoot>;
+    }
+    const containerWithRoot = container as ContainerWithRoot;
+    let root = containerWithRoot.__badgeRoot;
+    if (!root || typeof root.render !== "function") {
+      root = createRoot(container);
+      containerWithRoot.__badgeRoot = root;
+    }
+
+    // Get job ID for click handler
+    const jobId = container.getAttribute("data-job-id") || "";
+
+    const handleClick = () => {
+      const event = new CustomEvent("scam-detector:open-report", {
+        detail: {
+          jobId,
+          container,
+        },
+        bubbles: true,
+      });
+      container.dispatchEvent(event);
+    };
+
+    // Render badge component
+    root.render(
+      React.createElement(RiskBadge, {
+        riskLevel,
+        riskScore,
+        onClick: handleClick,
+      })
+    );
+  };
 
   /**
    * Process a single job element
@@ -146,13 +222,11 @@ export default function LinkedInScanner() {
 
       // Initialize badge container with loading state
       badgeContainer.setAttribute("data-job-id", jobId);
-      badgeContainer.setAttribute("data-risk-level", "loading");
       badgeContainer.setAttribute("data-job-data", JSON.stringify(jobData));
       badgeContainer.setAttribute("data-scam-detector", "true");
 
-      // Trigger badge mount (will show loading state)
-      const event = new CustomEvent("scam-detector:badge-update");
-      document.dispatchEvent(event);
+      // Mount badge with loading state immediately
+      mountBadgeToContainer(badgeContainer, "loading");
 
       // Send job data to background worker for analysis
       const requestBody: ScanJobRequestBody = {
@@ -161,7 +235,7 @@ export default function LinkedInScanner() {
         jobId,
       };
 
-      // Send message and handle preliminary response
+      // Send message to background (works in ISOLATED world)
       sendToBackground<ScanJobRequestBody, ScanJobResponseBody>({
         name: "scan-job",
         body: requestBody,
@@ -174,7 +248,7 @@ export default function LinkedInScanner() {
             const { riskLevel, riskScore, flags } = response.preliminary;
 
             // Update badge with preliminary result
-            updateBadge(badgeContainer, riskLevel, riskScore);
+            mountBadgeToContainer(badgeContainer, riskLevel, riskScore);
 
             // Store preliminary result
             badgeContainer.setAttribute(
@@ -199,7 +273,7 @@ export default function LinkedInScanner() {
               "[LinkedIn Scam Detector] Analysis error:",
               response.error
             );
-            updateBadge(badgeContainer, "caution", 50);
+            mountBadgeToContainer(badgeContainer, "caution", 50);
           }
         })
         .catch((error) => {
@@ -208,7 +282,7 @@ export default function LinkedInScanner() {
             error
           );
           // Show error state
-          updateBadge(badgeContainer, "caution", 50);
+          mountBadgeToContainer(badgeContainer, "caution", 50);
         });
     } catch (error) {
       console.error(
@@ -340,12 +414,6 @@ export default function LinkedInScanner() {
     };
   }, []);
 
-  // Render BadgeMount component to mount React badges into containers
   // Render RiskReportManager to handle report modal
-  return (
-    <>
-      <BadgeMount />
-      <RiskReportManager />
-    </>
-  );
+  return <RiskReportManager />;
 }

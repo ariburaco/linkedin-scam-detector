@@ -120,6 +120,7 @@ const handler: PlasmoMessaging.MessageHandler<
         }
 
         if (senderTabId) {
+          // Send message directly to content script (works in ISOLATED world)
           chrome.tabs
             .sendMessage(senderTabId, {
               type: "scam-detector:final-result",
@@ -144,6 +145,7 @@ const handler: PlasmoMessaging.MessageHandler<
         // Send error result via message
         const senderTabId = req.sender?.tab?.id;
         if (senderTabId) {
+          // Send error result directly to content script (works in ISOLATED world)
           chrome.tabs
             .sendMessage(senderTabId, {
               type: "scam-detector:final-result",

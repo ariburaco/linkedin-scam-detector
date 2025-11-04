@@ -37,10 +37,13 @@ export const SELECTORS = {
 
   // Job description selectors
   jobDescription: [
-    ".jobs-description__text",
-    ".jobs-description-content__text",
-    ".job-search-card__description",
-    "[data-job-id] .jobs-box__html-content",
+    "#job-details", // Direct ID selector for job details section
+    ".jobs-box__html-content", // Main content container
+    ".jobs-description-content__text--stretch", // Stretch variant
+    ".jobs-description-content__text", // Base class
+    ".jobs-description__text", // Alternative class
+    ".job-search-card__description", // For search results cards
+    "[data-job-id] .jobs-box__html-content", // Fallback with data attribute
   ],
 
   // Job URL selector (usually from the link)
