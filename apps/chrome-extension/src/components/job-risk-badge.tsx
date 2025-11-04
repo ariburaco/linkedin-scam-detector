@@ -32,10 +32,15 @@ interface JobRiskBadgeProps {
  * Self-contained badge component that handles job scanning
  * Can be mounted via Plasmo's getInlineAnchor
  */
-export function JobRiskBadge({ jobData: providedJobData, container }: JobRiskBadgeProps) {
+export function JobRiskBadge({
+  jobData: providedJobData,
+  container,
+}: JobRiskBadgeProps) {
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("loading");
   const [riskScore, setRiskScore] = useState<number | undefined>(undefined);
-  const [jobData, setJobData] = useState<JobData | null>(providedJobData || null);
+  const [jobData, setJobData] = useState<JobData | null>(
+    providedJobData || null
+  );
   const [localResult, setLocalResult] = useState<LocalRulesResult | null>(null);
   const [geminiResult, setGeminiResult] = useState<{
     riskScore: number;
@@ -97,7 +102,11 @@ export function JobRiskBadge({ jobData: providedJobData, container }: JobRiskBad
 
         // Handle preliminary result (local rules)
         if (response.preliminary) {
-          const { riskLevel: level, riskScore: score, flags } = response.preliminary;
+          const {
+            riskLevel: level,
+            riskScore: score,
+            flags,
+          } = response.preliminary;
           setRiskLevel(level);
           setRiskScore(score);
           setLocalResult({

@@ -9,7 +9,6 @@ import {
   generateJobId,
   isJobSearchPage,
 } from "@/lib/linkedin-dom";
-import { SELECTORS } from "@/lib/linkedin-dom/selectors";
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.linkedin.com/jobs/*"],
@@ -23,7 +22,9 @@ export const config: PlasmoCSConfig = {
 export default function LinkedInSearchBadge() {
   const [processedJobs, setProcessedJobs] = useState<Set<string>>(new Set());
   const processedJobsRef = useRef<Set<string>>(new Set());
-  const badgeRootsRef = useRef<Map<string, ReturnType<typeof createRoot>>>(new Map());
+  const badgeRootsRef = useRef<Map<string, ReturnType<typeof createRoot>>>(
+    new Map()
+  );
   const observerRef = useRef<MutationObserver | null>(null);
 
   // Sync ref with state
@@ -63,7 +64,9 @@ export default function LinkedInSearchBadge() {
 
       let titleElement: HTMLElement | null = null;
       for (const selector of titleSelectors) {
-        titleElement = cardElement.querySelector(selector) as HTMLElement | null;
+        titleElement = cardElement.querySelector(
+          selector
+        ) as HTMLElement | null;
         if (titleElement) break;
       }
 
@@ -196,7 +199,7 @@ export default function LinkedInSearchBadge() {
       badgeRootsRef.current.forEach((root) => {
         try {
           root.unmount();
-        } catch (error) {
+        } catch {
           // Ignore unmount errors
         }
       });
@@ -213,7 +216,7 @@ export default function LinkedInSearchBadge() {
       badgeRootsRef.current.forEach((root) => {
         try {
           root.unmount();
-        } catch (error) {
+        } catch {
           // Ignore unmount errors
         }
       });
