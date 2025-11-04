@@ -28,6 +28,8 @@
     "zod": "catalog:",
     "superjson": "catalog:",
     "@acme/auth": "workspace:*",
-    "@acme/db": "workspace:*"
+    "@acme/db": "workspace:*",
+    "ai": "^5.0.87",
+    "@ai-sdk/google": "^2.0.28"
   }
 }

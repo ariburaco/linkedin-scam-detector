@@ -4,6 +4,7 @@ import prisma from "@acme/db";
 import { z } from "zod";
 
 import { router, publicProcedure } from "../index";
+import { aiService } from "../services/ai-service";
 
 export const scamDetectorRouter = router({
   // Scan a job posting
@@ -16,8 +17,7 @@ export const scamDetectorRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { jobUrl } = input;
-      // jobText and companyName will be used in Task 3 for Gemini integration
+      const { jobText, jobUrl, companyName } = input;
 
       // 1. Generate URL hash
       const jobUrlHash = createHash("sha256").update(jobUrl).digest("hex");
@@ -30,40 +30,66 @@ export const scamDetectorRouter = router({
       if (cached && cached.expiresAt > new Date()) {
         return {
           riskScore: cached.riskScore,
+          riskLevel:
+            cached.riskScore < 40
+              ? "safe"
+              : cached.riskScore < 70
+                ? "caution"
+                : "danger",
           flags: cached.flags as Array<{
             type: string;
             confidence: "low" | "medium" | "high";
             message: string;
             reasoning?: string;
           }>,
+          summary: "Analysis retrieved from cache",
           source: "cache",
         };
       }
 
-      // 3. TODO: Call Gemini 2.0 Flash via Vercel AI SDK
-      // This will be implemented in Task 3
-      // For now, return a placeholder response
-      const placeholderResult = {
-        riskScore: 50,
-        riskLevel: "caution" as const,
-        flags: [],
-        summary: "Analysis pending - Gemini integration coming in Task 3",
-      };
+      // 3. Call Gemini 2.0 Flash via AI Service
+      let geminiResult;
+      try {
+        geminiResult = await aiService.analyzeJob({
+          jobText,
+          companyName,
+          jobUrl,
+        });
+      } catch (error) {
+        console.error("[scamDetectorRouter] AI analysis failed:", error);
+        // Return fallback result instead of throwing
+        return {
+          riskScore: 50,
+          riskLevel: "caution" as const,
+          flags: [
+            {
+              type: "analysis_error",
+              confidence: "low" as const,
+              message:
+                "Unable to complete full analysis. Proceed with caution.",
+              reasoning:
+                "AI service temporarily unavailable. Please verify job details manually.",
+            },
+          ],
+          summary: "Analysis incomplete - use your judgment.",
+          source: "fallback",
+        };
+      }
 
       // 4. Cache result in database (24-hour TTL)
       await prisma.scanCache.create({
         data: {
           jobUrlHash,
-          riskScore: placeholderResult.riskScore,
-          flags: placeholderResult.flags,
+          riskScore: geminiResult.riskScore,
+          flags: geminiResult.flags,
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
         },
       });
 
       // 5. Return result
       return {
-        ...placeholderResult,
-        source: "placeholder",
+        ...geminiResult,
+        source: "gemini",
       };
     }),
 

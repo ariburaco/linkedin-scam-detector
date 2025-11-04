@@ -27,13 +27,13 @@
         "id": 3,
         "title": "Integrate Gemini 2.0 Flash for AI Analysis",
         "description": "Implement the backend logic to send job posting content to the Gemini 2.0 Flash model via the Vercel AI SDK and receive a structured risk assessment.",
-        "details": "In the `scanJob` mutation within the `scamDetectorRouter`, use the Vercel AI SDK's `generateObject` function with the Gemini 2.0 Flash model (`gemini-2.0-flash-exp`). Construct a detailed prompt instructing the model to act as a scam detection expert and analyze the provided job text. Define the Zod schema for the structured output, including `risk_score` (number), `flags` (array of objects with `name`, `reasoning`, `confidence`), and `recommendation` (string). Implement caching logic: before calling the API, check the `ScanCache` table for a recent result for the given `jobUrlHash`. After a successful API call, store the result in the cache with a 24-hour expiration.",
+        "details": "In the `scanJob` mutation within the `scamDetectorRouter`, use the Vercel AI SDK's `generateObject` function with the Gemini 2.0 Flash model (`gemini-2.0-flash-exp`). Construct a detailed prompt instructing the model to act as a scam detection expert and analyze the provided job text. Define the Zod schema for the structured output, including `risk_score` (number), `flags` (array of objects with `name`, `reasoning`, `confidence`), and `recommendation` (string). Implement caching logic: before calling the API, check the `ScanCache` table for a recent result for the given `jobUrlHash`. After a successful API call, store the result in the cache with a 24-hour expiration.\n<info added on 2025-11-04T20:20:51.285Z>\n```json\n\"Implementation Summary:\\nThe integration was completed using a class-based architecture. A singleton `AIService` class was created in `packages/api/src/services/ai-service.ts` to manage AI interactions. This service uses the Vercel AI SDK v5 (using `maxOutputTokens`) and features robust retry logic with exponential backoff (3 attempts) and a fallback prompt for failed attempts. Error handling is included to prevent retries on authentication errors.\\n\\nKey files created:\\n- `packages/api/src/schemas/scam-analysis.ts`: Centralizes Zod schemas for input validation (`jobAnalysisInputSchema`), individual flags (`redFlagSchema`), and the final result (`scamAnalysisSchema`).\\n- `packages/api/src/prompts/scam-detection.ts`: Contains a comprehensive `buildScamDetectionPrompt()` for the main analysis and a `buildFallbackPrompt()` for retries.\\n\\nThe `scanJob` mutation in `packages/api/src/routers/scam-detector.ts` now uses the `aiService.analyzeJob()` method. The response has been enhanced to include a calculated `riskLevel` and a `summary`. Caching remains implemented with a 24-hour TTL. Graceful error handling provides a fallback response on failure.\\n\\nAn environment variable `GOOGLE_GENERATIVE_AI_API_KEY` is now required for authentication with the Google AI SDK.\"\n```\n</info added on 2025-11-04T20:20:51.285Z>",
         "testStrategy": "Test the `scanJob` endpoint with sample job descriptions (both scam and legitimate). Verify that the API call to Gemini is made correctly. Assert that the response from the endpoint matches the structured JSON format defined. Test the caching mechanism by calling the endpoint twice with the same URL and ensuring the second call is served from the cache (e.g., by checking database logs or response times).",
         "priority": "high",
         "dependencies": [
           1
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -131,7 +131,7 @@
     ],
     "metadata": {
       "created": "2025-11-04T19:43:05.465Z",
-      "updated": "2025-11-04T20:16:26.988Z",
+      "updated": "2025-11-04T20:20:51.742Z",
       "description": "Tasks for master context"
     }
   }
