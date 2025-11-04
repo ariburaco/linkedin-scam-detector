@@ -71,7 +71,9 @@ const Popup = () => {
       <div className="space-y-4 p-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="text-sm text-muted-foreground">Loading stats...</div>
+            <div className="text-muted-foreground text-sm">
+              Loading stats...
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-3">
@@ -84,7 +86,7 @@ const Popup = () => {
                 <div className="text-2xl font-bold text-sky-700 dark:text-sky-300">
                   {stats.scannedToday}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-muted-foreground text-xs">
                   Scanned Today
                 </div>
               </CardContent>
@@ -99,7 +101,7 @@ const Popup = () => {
                 <div className="text-2xl font-bold text-red-700 dark:text-red-300">
                   {stats.threatsBlocked}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-muted-foreground text-xs">
                   Threats Blocked
                 </div>
               </CardContent>
@@ -114,7 +116,7 @@ const Popup = () => {
                 <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                   {stats.safetyScore}%
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-muted-foreground text-xs">
                   Safety Score
                 </div>
               </CardContent>

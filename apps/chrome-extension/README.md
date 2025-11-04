@@ -1,145 +1,135 @@
-# Chrome Extension Demo
+# LinkedIn Scam Detector - Chrome Extension
 
-This is a demo Chrome extension built with [Plasmo](https://docs.plasmo.com/), showcasing various extension features and components.
+A Chrome extension that helps job seekers identify potentially fraudulent job postings on LinkedIn using AI-powered detection and rule-based analysis.
 
 ## Features
 
-This extension demonstrates various Chrome extension capabilities:
+- 🛡️ **Instant Scam Detection** - Automatically scans job postings as you browse LinkedIn
+- 🤖 **AI-Powered Analysis** - Uses Google Gemini AI for sophisticated pattern detection
+- ⚡ **Fast Local Rules** - Client-side detection in <100ms for common patterns
+- 📊 **Detailed Risk Reports** - Click badges to see comprehensive analysis
+- 🔒 **Privacy-First** - No account required, minimal data collection
+- 📈 **Statistics Dashboard** - Track jobs scanned and threats blocked
 
-- **Popup UI** - A multi-tabbed popup interface
-- **Content Scripts** - Scripts that run on web pages
-- **Background Service Worker** - Handles background tasks and messaging
-- **Options Page** - Configure extension settings
-- **Tab Pages** - Full extension pages accessible via direct URLs
-- **Storage API** - Persistent data storage with sync capabilities
-- **Secure Storage** - Encrypted storage for sensitive data
-- **Messaging System** - Communication between different parts of the extension
-  - **One-time Messages** - Request/response messaging with background
-  - **Ports** - Long-lived connections for continuous communication
-  - **Relay Messaging** - Communication from webpage to extension
+## Installation
 
-## Project Structure
+### From Chrome Web Store (Coming Soon)
 
-- **Popup UI** (`src/popup.tsx`): The extension's main popup interface
-- **Background Script** (`src/background/index.ts`): Handles background tasks
-- **Message Handlers**:
-  - `src/background/messages/count.ts`: Simple counter handler
-- **Port Handlers**:
-  - `src/background/ports/counter.ts`: Real-time counter handler
-- **Content Scripts**:
-  - `src/content.tsx`: Main content script that injects UI into web pages
-  - `src/contents/analytics.ts`: Analytics tracking content script
-  - `src/contents/relay-example.ts`: Demonstrates relay messaging
-  - `src/contents/toolbar-injector.tsx`: Injects a floating toolbar on pages
-- **Options Page** (`src/options.tsx`): Extension settings configuration
-- **Tab Pages** (`src/tabs/dashboard.tsx`): Full-page dashboard UI
-- **Features**:
-  - `src/features/count-button.tsx`: Reusable counter button component
-  - `src/features/storage-demo.tsx`: Demo of the storage API
-  - `src/features/secure-storage-demo.tsx`: Demo of the secure storage API
-  - `src/features/update-checker.tsx`: Example update notification system
-  - `src/features/live-counter.tsx`: Real-time counter with port messaging
+[Install from Chrome Web Store](https://chrome.google.com/webstore) - *Link will be available after publication*
+
+### Development Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/[your-username]/linkedin-scam-detector.git
+   cd linkedin-scam-detector
+   ```
+
+2. Install dependencies:
+   ```bash
+   bun install
+   ```
+
+3. Build the extension:
+   ```bash
+   cd apps/chrome-extension
+   bun run build
+   ```
+
+4. Load in Chrome:
+   - Open Chrome and navigate to `chrome://extensions/`
+   - Enable "Developer mode" (toggle in top right)
+   - Click "Load unpacked"
+   - Select the `build/chrome-mv3-prod` directory
 
 ## Development
 
+### Prerequisites
+
+- Node.js 18+ or Bun
+- Chrome browser for testing
+
+### Scripts
+
 ```bash
-# Start dev server
-pnpm dev
+# Development mode with hot reload
+bun run dev
 
-# Build for production
-pnpm build
+# Production build
+bun run build
 
-# Package extension for distribution
-pnpm package
+# Package for distribution
+bun run package
+
+# Type checking
+bun run typecheck
+
+# Linting
+bun run lint
+bun run lint:fix
 ```
 
-## Technical Details
+### Project Structure
 
-This extension is built using:
-
-- [Plasmo Framework](https://docs.plasmo.com/) - Framework for building browser extensions
-- [React](https://reactjs.org/) - UI library
-- [TypeScript](https://www.typescriptlang.org/) - Type-safe JavaScript
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
-
-## Storage Usage
-
-The extension uses Plasmo's storage API for data persistence:
-
-```typescript
-// Basic storage
-import { Storage } from "@plasmohq/storage";
-// React hook storage
-import { useStorage } from "@plasmohq/storage/hook";
-// Secure storage
-import { SecureStorage } from "@plasmohq/storage/secure";
-
-const storage = new Storage();
-await storage.set("key", "value");
-const data = await storage.get("key");
-
-const secureStorage = new SecureStorage();
-await secureStorage.setPassword("password");
-await secureStorage.set("secretKey", "secretValue");
-
-const [value, setValue] = useStorage("key", initialValue);
+```
+apps/chrome-extension/
+├── src/
+│   ├── background/          # Background service worker
+│   ├── components/          # React components
+│   ├── contents/            # Content scripts
+│   ├── lib/                 # Utilities and libraries
+│   │   ├── linkedin-dom/    # LinkedIn DOM utilities
+│   │   ├── local-rules/     # Client-side detection rules
+│   │   └── utils/           # Helper functions
+│   ├── options/             # Options page
+│   └── popup.tsx            # Extension popup
+├── assets/                  # Static assets
+└── build/                   # Build output
 ```
 
-## Messaging System
+## How It Works
 
-Communication between content scripts, popup, and background:
+1. **Content Script** detects job postings on LinkedIn pages
+2. **Local Rules Engine** provides instant preliminary analysis (<100ms)
+3. **Background Worker** sends job data to AI service for full analysis
+4. **Risk Badges** display on job cards with color-coded risk levels
+5. **Risk Reports** provide detailed analysis when badges are clicked
 
-```typescript
-// ONE-TIME MESSAGING
+## Privacy
 
-// Send message from popup/content script to background
-import { sendToBackground } from "@plasmohq/messaging";
-const response = await sendToBackground({
-  name: "count",
-  body: { action: "get" },
-});
+- No account or login required
+- Job descriptions processed locally when possible
+- AI analysis uses ephemeral data (not stored by Google)
+- Anonymous feedback submissions only
+- All settings stored locally on your device
 
-// Handler in background script (src/background/messages/count.ts)
-const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
-  const { action } = req.body;
-  // Handle different actions
-  res.send({ result: "success" });
-};
+See [Privacy Policy](../docs/PRIVACY_POLICY.md) for complete details.
 
-// PORT MESSAGING
+## Permissions
 
-// In popup/content script - connect to port
-import { usePort } from "@plasmohq/messaging/hook";
-const counterPort = usePort("counter");
-counterPort.send({ action: "increment" });
+- `storage` - Store extension settings and statistics locally
+- `tabs` - Access to active tab for content script injection
+- `https://www.linkedin.com/*` - Host permission for LinkedIn pages
 
-// In background (src/background/ports/counter.ts)
-const handler: PlasmoMessaging.PortHandler = async (req, res) => {
-  // Handle port message
-  res.send({ result: "success" });
-};
+## Contributing
 
-// RELAY MESSAGING
+Contributions are welcome! Please see our [Contributing Guidelines](../CONTRIBUTING.md) for details.
 
-// Set up relay in content script
-import { relayMessage } from "@plasmohq/messaging";
-relayMessage({ name: "count" });
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
-// Send from webpage to background via content script
-window.postMessage(
-  {
-    plasmoRelay: true,
-    name: "count",
-    body: { action: "get" },
-  },
-  "*"
-);
-```
+## Reporting Issues
 
-## Browser Compatibility
+Found a bug or have a feature request? Please open an issue on [GitHub Issues](https://github.com/[your-username]/linkedin-scam-detector/issues).
 
-This extension works with:
+## License
 
-- Google Chrome
-- Microsoft Edge
-- Firefox (with the added `browser_specific_settings`)
+[Add your license here]
+
+## Disclaimer
+
+LinkedIn Scam Detector is an independent tool and is not affiliated with, endorsed by, or connected to LinkedIn Corporation. "LinkedIn" is a registered trademark of LinkedIn Corporation.
+
+This tool is a detection aid, not a guarantee. Always use your judgment when evaluating job opportunities.

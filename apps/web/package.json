@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port=3000",
-    "build": "next build",
-    "start": "next start",
+    "dev": "bun with-env next dev --port=3000",
+    "build": "bun with-env next build",
+    "start": "bun with-env next start",
     "clean": "git clean -xdf .turbo node_modules .next dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

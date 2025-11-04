@@ -106,18 +106,18 @@
         "id": 9,
         "title": "Build Extension Shell (Popup, Options Page)",
         "description": "Create the main extension UI, including the popup that appears when the toolbar icon is clicked and the options page for settings.",
-        "details": "Using Plasmo, create `src/popup.tsx` to build the popup UI. This should display basic stats (e.g., 'X jobs scanned today') and a link to the options page. Create `src/options/index.tsx` for the options page. Implement a simple UI with a toggle for 'Enable Auto-Scan' and links to the privacy policy, about page, and bug reporting. Use `chrome.storage.local` to store and retrieve user settings so they persist.",
+        "details": "Using Plasmo, create `src/popup.tsx` to build the popup UI. This should display basic stats (e.g., 'X jobs scanned today') and a link to the options page. Create `src/options/index.tsx` for the options page. Implement a simple UI with a toggle for 'Enable Auto-Scan' and links to the privacy policy, about page, and bug reporting. Use `chrome.storage.local` to store and retrieve user settings so they persist.\n<info added on 2025-11-04T20:35:54.349Z>\nA dedicated statistics tracking system has been created in `src/lib/utils/stats.ts`. This module includes functions to increment daily scans (`incrementScannedToday`) and threats blocked (`incrementThreatsBlocked`), retrieve all stats (`getStats`), and reset them. It uses `chrome.storage.local` for persistence and features an automatic daily reset at midnight.\n\nThe background worker at `src/background/messages/scan-job.ts` has been integrated with this system. It now calls `incrementScannedToday` after a preliminary scan and `incrementThreatsBlocked` when a job is confirmed as dangerous.\n\nThe popup UI in `src/popup.tsx` has been updated to fetch and display real statistics from storage, replacing the initial mock data. It now shows a loading state, auto-refreshes every 5 seconds while open, and displays 'Scanned Today', 'Threats Blocked', and a calculated 'Safety Score'.\n\nThe options page at `src/options/index.tsx` has been built out with a three-tab interface: Preferences, Privacy, and About. The Preferences tab includes toggles for 'Enable Auto-Scan', 'Show Safe Badges', and 'Browser Notifications'. Settings are now saved to `chrome.storage.sync` with an auto-save mechanism that provides success/error toasts. The UI design is consistent across both the popup and options pages.\n</info added on 2025-11-04T20:35:54.349Z>",
         "testStrategy": "Click the extension icon in the Chrome toolbar and verify the popup displays correctly. Check that settings changed in the options page are saved and retrieved correctly. Ensure the links on the options page navigate to the correct destinations. Test that disabling 'Auto-Scan' correctly prevents the content script from running.",
         "priority": "low",
         "dependencies": [],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": []
       },
       {
         "id": 10,
         "title": "Finalize and Prepare for Chrome Web Store Launch",
         "description": "Complete all necessary steps for publishing the extension, including creating store assets, writing a privacy policy, and performing final testing.",
-        "details": "Write a clear and comprehensive Privacy Policy, detailing all data collection and usage as specified in the PRD. Create the required Chrome Web Store assets: icons (16, 32, 48, 128px), promotional screenshots, and a compelling description. Thoroughly test the extension on Chrome for Windows, macOS, and Linux. Beta test with a small group of users to gather initial feedback. Once all bugs are addressed and the listing is complete, bundle the extension and submit it for review on the Chrome Web Store dashboard.",
+        "details": "Write a clear and comprehensive Privacy Policy, detailing all data collection and usage as specified in the PRD. Create the required Chrome Web Store assets: icons (16, 32, 48, 128px), promotional screenshots, and a compelling description. Thoroughly test the extension on Chrome for Windows, macOS, and Linux. Beta test with a small group of users to gather initial feedback. Once all bugs are addressed and the listing is complete, bundle the extension and submit it for review on the Chrome Web Store dashboard.\n<info added on 2025-11-04T20:37:25.596Z>\n```json\n\"All preparatory documentation and configuration for the Chrome Web Store launch are now complete. Key documents have been created, including the Privacy Policy (docs/PRIVACY_POLICY.md), Chrome Web Store Listing Content (docs/CHROME_WEB_STORE_LISTING.md), a Store Assets Checklist (apps/chrome-extension/STORE_ASSETS.md), and an updated Extension README (apps/chrome-extension/README.md). The manifest in `apps/chrome-extension/package.json` has been updated to version 1.0.0, and permissions have been refined for enhanced security by removing 'cookies' and 'scripting' and limiting host permissions to LinkedIn domains. The extension is now ready for the final launch phase. Next steps include creating the promotional screenshots, hosting the privacy policy publicly, conducting final cross-platform testing, and then building, packaging, and submitting the extension to the Chrome Web Store.\"\n```\n</info added on 2025-11-04T20:37:25.596Z>",
         "testStrategy": "Review the Privacy Policy against the PRD's requirements and Chrome's policies. Validate all store assets are the correct dimensions and format. Perform a final regression test of all features on a clean Chrome profile. Follow the Chrome Web Store submission checklist and ensure all required fields are filled out correctly.",
         "priority": "medium",
         "dependencies": [
@@ -125,13 +125,13 @@
           8,
           9
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-11-04T19:43:05.465Z",
-      "updated": "2025-11-04T20:35:01.619Z",
+      "updated": "2025-11-04T20:37:25.944Z",
       "description": "Tasks for master context"
     }
   }
