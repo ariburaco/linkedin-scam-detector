@@ -169,3 +169,7 @@ This project uses **Bun** (`bun@1.2.23`) exclusively. Do not use npm, pnpm, or y
 - Prisma client is generated to `packages/db/prisma/generated/` with ESM format
 - tRPC context includes session information - check `packages/api/src/context.ts` for available context
 - Chrome extension runs content scripts in the MAIN world to access page JavaScript context
+
+## Task Master AI Instructions
+**Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
+@./.taskmaster/CLAUDE.md

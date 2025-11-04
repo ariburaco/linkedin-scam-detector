@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { Storage } from "@plasmohq/storage";
+import { useEffect, useState } from "react";
 
 import "@/style.css";
 
