@@ -124,11 +124,19 @@ export function JobRiskBadge({
     }
 
     // Extract from DOM
-    const extractedData = isJobPostingPage()
-      ? extractJobDataFromPage()
-      : container
-        ? extractJobDataFromCard(container)
-        : null;
+    // Priority: 1) container (for search result cards), 2) full page (for detail panels or single job pages)
+    let extractedData: JobData | null = null;
+
+    if (container) {
+      // Try extracting from card container first (for search result cards)
+      extractedData = extractJobDataFromCard(container);
+    }
+
+    // If no container or extraction failed, try full page extraction
+    // This works for both single job pages and search detail panels
+    if (!extractedData) {
+      extractedData = extractJobDataFromPage();
+    }
 
     if (extractedData) {
       const initialJobId = generateJobId(extractedData);
