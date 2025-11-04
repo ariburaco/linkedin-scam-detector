@@ -92,14 +92,16 @@ export function JobRiskBadge({
           newJobId
         );
 
-        // Reset state
-        lastJobIdRef.current = newJobId;
-        jobIdRef.current = null;
-        hasScannedRef.current = false;
+        // Reset state - set loading FIRST to show spinner immediately
         setRiskLevel("loading");
         setRiskScore(undefined);
         setLocalResult(null);
         setGeminiResult(null);
+
+        // Then reset refs and update job data
+        lastJobIdRef.current = newJobId;
+        jobIdRef.current = null;
+        hasScannedRef.current = false;
         setJobData(extractedData);
       }
     } catch (error) {
@@ -115,6 +117,8 @@ export function JobRiskBadge({
   // Extract job data on mount if not provided
   useEffect(() => {
     if (providedJobData) {
+      // Ensure loading state when provided job data changes
+      setRiskLevel("loading");
       setJobData(providedJobData);
       return;
     }
@@ -129,6 +133,8 @@ export function JobRiskBadge({
     if (extractedData) {
       const initialJobId = generateJobId(extractedData);
       lastJobIdRef.current = initialJobId;
+      // Ensure loading state when new job data is extracted
+      setRiskLevel("loading");
       setJobData(extractedData);
     }
   }, [providedJobData, container]);
@@ -136,6 +142,10 @@ export function JobRiskBadge({
   // Generate job ID and trigger scan
   useEffect(() => {
     if (!jobData || hasScannedRef.current) return;
+
+    // Ensure loading state is set before starting scan
+    setRiskLevel("loading");
+    setRiskScore(undefined); // Clear old score immediately
 
     const jobId = generateJobId(jobData);
 
@@ -149,52 +159,60 @@ export function JobRiskBadge({
 
     const jobUrl = jobData.url || window.location.href;
 
-    // Send scan request
-    const requestBody: ScanJobRequestBody = {
-      jobData,
-      jobUrl,
-      jobId,
-    };
+    // Add 300ms artificial delay before starting scan
+    const delayTimeout = setTimeout(() => {
+      // Send scan request
+      const requestBody: ScanJobRequestBody = {
+        jobData,
+        jobUrl,
+        jobId,
+      };
 
-    sendToBackground<ScanJobRequestBody, ScanJobResponseBody>({
-      name: "scan-job",
-      body: requestBody,
-    })
-      .then((response) => {
-        if (!response) return;
+      sendToBackground<ScanJobRequestBody, ScanJobResponseBody>({
+        name: "scan-job",
+        body: requestBody,
+      })
+        .then((response) => {
+          if (!response) return;
 
-        // Handle preliminary result (local rules)
-        if (response.preliminary) {
-          const {
-            riskLevel: level,
-            riskScore: score,
-            flags,
-          } = response.preliminary;
-          setRiskLevel(level);
-          setRiskScore(score);
-          setLocalResult({
-            riskScore: score,
-            riskLevel: level,
-            flags: flags.map((f) => ({
-              type: f.type,
-              confidence: f.confidence,
-              message: f.message,
-            })),
-          });
-        }
+          // Handle preliminary result (local rules)
+          if (response.preliminary) {
+            const {
+              riskLevel: level,
+              riskScore: score,
+              flags,
+            } = response.preliminary;
+            setRiskLevel(level);
+            setRiskScore(score);
+            setLocalResult({
+              riskScore: score,
+              riskLevel: level,
+              flags: flags.map((f) => ({
+                type: f.type,
+                confidence: f.confidence,
+                message: f.message,
+              })),
+            });
+          }
 
-        // Handle errors in preliminary phase
-        if (response.error) {
-          console.error("[JobRiskBadge] Analysis error:", response.error);
+          // Handle errors in preliminary phase
+          if (response.error) {
+            console.error("[JobRiskBadge] Analysis error:", response.error);
+            setRiskLevel("caution");
+            setRiskScore(50);
+          }
+        })
+        .catch((error) => {
+          console.error("[JobRiskBadge] Failed to send scan request:", error);
           setRiskLevel("caution");
           setRiskScore(50);
-        }
-      })
-      .catch((error) => {
-        console.error("[JobRiskBadge] Failed to send scan request:", error);
-        setRiskLevel("caution");
-        setRiskScore(50);
-      });
+        });
+    }, 300);
+
+    // Cleanup timeout if component unmounts or job changes
+    return () => {
+      clearTimeout(delayTimeout);
+    };
   }, [jobData]);
 
   // Listen for final result messages from background

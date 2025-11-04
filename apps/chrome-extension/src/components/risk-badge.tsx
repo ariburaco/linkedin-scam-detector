@@ -37,9 +37,9 @@ const riskConfig = {
     hover: "hover:bg-red-600",
   },
   loading: {
-    color: "bg-gray-400",
+    color: "bg-gray-500",
     textColor: "text-white",
-    borderColor: "border-gray-500",
+    borderColor: "border-gray-600",
     icon: Loader2,
     label: "Scanning...",
     hover: "",
