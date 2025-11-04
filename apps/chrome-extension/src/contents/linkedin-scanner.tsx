@@ -2,6 +2,7 @@ import type { PlasmoCSConfig } from "plasmo";
 import { useEffect, useRef, useState } from "react";
 
 import { BadgeMount } from "@/components/badge-mount";
+import { RiskReportManager } from "@/components/risk-report-manager";
 import {
   extractJobDataFromCard,
   extractJobDataFromPage,
@@ -232,5 +233,11 @@ export default function LinkedInScanner() {
   }, []);
 
   // Render BadgeMount component to mount React badges into containers
-  return <BadgeMount />;
+  // Render RiskReportManager to handle report modal
+  return (
+    <>
+      <BadgeMount />
+      <RiskReportManager />
+    </>
+  );
 }
