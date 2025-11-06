@@ -221,6 +221,133 @@ export class DiscoveredJobService {
   }
 
   /**
+   * Get unprocessed discovered jobs that don't exist in jobs table
+   */
+  static async getUnprocessedJobs(
+    limit: number = 50,
+    priority: boolean = true
+  ): Promise<DiscoveredJob[]> {
+    try {
+      // Get unprocessed discovered jobs
+      const unprocessed = await prisma.discoveredJob.findMany({
+        where: {
+          OR: [{ processingStatus: "pending" }, { processedAt: null }],
+          processingStatus: {
+            not: "completed",
+          },
+        },
+        orderBy: priority
+          ? [{ priorityScore: "desc" }, { discoveredAt: "asc" }]
+          : [{ discoveredAt: "asc" }],
+        take: limit,
+      });
+
+      // Filter out jobs that already exist in jobs table
+      const linkedInJobIds = unprocessed.map((dj) => dj.linkedinJobId);
+      const existingJobs = await prisma.job.findMany({
+        where: {
+          linkedinJobId: {
+            in: linkedInJobIds,
+          },
+        },
+        select: { linkedinJobId: true },
+      });
+
+      const existingJobIds = new Set(
+        existingJobs.map((j) => j.linkedinJobId).filter(Boolean)
+      );
+
+      const jobsToProcess = unprocessed.filter(
+        (dj) => !existingJobIds.has(dj.linkedinJobId)
+      );
+
+      logger.info("Found unprocessed discovered jobs", {
+        total: unprocessed.length,
+        alreadyProcessed: existingJobs.length,
+        toProcess: jobsToProcess.length,
+      });
+
+      return jobsToProcess;
+    } catch (error) {
+      logger.error("Failed to get unprocessed discovered jobs", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Mark discovered job as processing
+   */
+  static async markAsProcessing(id: string): Promise<void> {
+    try {
+      await prisma.discoveredJob.update({
+        where: { id },
+        data: {
+          processingStatus: "processing",
+          processingAttempts: {
+            increment: 1,
+          },
+        },
+      });
+    } catch (error) {
+      logger.error("Failed to mark discovered job as processing", {
+        id,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Mark discovered job as completed
+   */
+  static async markAsCompleted(id: string, jobId: string): Promise<void> {
+    try {
+      await prisma.discoveredJob.update({
+        where: { id },
+        data: {
+          processingStatus: "completed",
+          processedAt: new Date(),
+          processedJobId: jobId,
+          lastProcessError: null,
+        },
+      });
+    } catch (error) {
+      logger.error("Failed to mark discovered job as completed", {
+        id,
+        jobId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Mark discovered job as failed
+   */
+  static async markAsFailed(id: string, error: string): Promise<void> {
+    try {
+      await prisma.discoveredJob.update({
+        where: { id },
+        data: {
+          processingStatus: "failed",
+          lastProcessError: error,
+          processingAttempts: {
+            increment: 1,
+          },
+        },
+      });
+    } catch (error) {
+      logger.error("Failed to mark discovered job as failed", {
+        id,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Find unprocessed discovered jobs
    */
   static async findUnprocessed(options: FindUnprocessedOptions = {}): Promise<{

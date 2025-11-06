@@ -62,6 +62,25 @@ export class JobService {
   }
 
   /**
+   * Check if job exists by LinkedIn ID
+   */
+  static async existsByLinkedInId(linkedinJobId: string): Promise<boolean> {
+    try {
+      const job = await prisma.job.findUnique({
+        where: { linkedinJobId },
+        select: { id: true },
+      });
+      return job !== null;
+    } catch (error) {
+      logger.error("Failed to check if job exists by LinkedIn ID", {
+        linkedinJobId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return false;
+    }
+  }
+
+  /**
    * Find job by URL hash
    */
   static async findByUrlHash(jobUrlHash: string): Promise<Job | null> {
@@ -224,7 +243,9 @@ export class JobService {
   static async hasEmbedding(jobId: string): Promise<boolean> {
     try {
       // Use raw SQL since Prisma doesn't support vector type directly
-      const result = await prisma.$queryRawUnsafe<Array<{ embedding_exists: boolean }>>(
+      const result = await prisma.$queryRawUnsafe<
+        Array<{ embedding_exists: boolean }>
+      >(
         `SELECT embedding IS NOT NULL as embedding_exists FROM scam_detector_job WHERE id = $1`,
         jobId
       );

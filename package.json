@@ -62,6 +62,7 @@
     "schedule:list": "bun scripts/trigger-schedule.ts list",
     "schedule:trigger": "bun scripts/trigger-schedule.ts trigger",
     "workflow:trigger": "bun scripts/trigger-schedule.ts workflow",
+    "process:discovered-jobs": "bun scripts/process-discovered-jobs.ts",
     "docker:up": "docker compose -f ./docker-compose.yml up -d",
     "docker:down": "docker compose -f ./docker-compose.yml down",
     "docker:stop": "docker compose -f ./docker-compose.yml stop",

@@ -22,7 +22,7 @@ export interface ScheduleConfig {
  * Schedule Configurations
  */
 export const schedules: ScheduleConfig[] = [
-  // LinkedIn Job Scraping Schedules
+  // LinkedIn Job Scraping Schedules (Discovery)
   {
     scheduleId: 'scrape-linkedin-jobs-daily',
     cronExpression: '0 2 * * *', // 2 AM daily
@@ -56,6 +56,39 @@ export const schedules: ScheduleConfig[] = [
     ],
     description: 'Hourly LinkedIn job scraping for remote developers',
     paused: true, // Start paused, enable for testing
+  },
+  // Process Discovered Jobs Schedules (Processing)
+  {
+    scheduleId: 'process-discovered-jobs-hourly',
+    cronExpression: '0 * * * *', // Every hour
+    workflowType: 'ProcessDiscoveredJobs',
+    workflowArgs: [
+      {
+        batchSize: 50,
+        priority: true,
+        triggerExtraction: false, // Will be controlled by feature flags
+        triggerEmbedding: false, // Will be controlled by feature flags
+      },
+    ],
+    description:
+      'Process discovered jobs hourly - scrape details and create Job entries',
+    paused: true, // Start paused, enable when ready
+  },
+  {
+    scheduleId: 'process-discovered-jobs-daily',
+    cronExpression: '0 3 * * *', // 3 AM daily (after discovery at 2 AM)
+    workflowType: 'ProcessDiscoveredJobs',
+    workflowArgs: [
+      {
+        batchSize: 200,
+        priority: true,
+        triggerExtraction: false,
+        triggerEmbedding: false,
+      },
+    ],
+    description:
+      'Process discovered jobs daily - handle backlog with larger batch',
+    paused: true, // Start paused, enable when ready
   },
 ];
 
