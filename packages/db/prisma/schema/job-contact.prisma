@@ -1,0 +1,20 @@
+model JobContact {
+  id             String   @id @default(cuid())
+  jobId          String
+  contactId      String
+  relationshipType String  @db.VarChar(100) // e.g., "job_poster", "hiring_manager", "recruiter", "hiring_team_member"
+  connectionDegree String? @db.VarChar(50) // e.g., "2nd", "3rd"
+  isJobPoster    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  // Relations
+  job            Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  contact        Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, contactId])
+  @@index([jobId])
+  @@index([contactId])
+  @@index([relationshipType])
+  @@map("scam_detector_job_contact")
+}
+

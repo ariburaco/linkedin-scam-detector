@@ -18,6 +18,7 @@ export interface CreateJobInput {
   url: string;
   title: string;
   company: string;
+  companyId?: string | null; // Optional foreign key to Company model
   description: string;
   location?: string | null;
   salary?: string | null;
@@ -147,6 +148,7 @@ export class JobService {
         const updateData = {
           title: input.title,
           company: input.company,
+          companyId: input.companyId ?? existingJob.companyId,
           description: input.description,
           location: input.location,
           salary: input.salary,

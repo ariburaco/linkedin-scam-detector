@@ -1,0 +1,20 @@
+model Contact {
+  id              String   @id @default(cuid())
+  linkedinProfileId String @unique @db.VarChar(200) // e.g., "ebrueksi" from /in/ebrueksi
+  name            String   @db.VarChar(500)
+  profileUrl      String   @db.Text // Full LinkedIn profile URL
+  profileImageUrl String?  @db.Text
+  isVerified      Boolean  @default(false)
+  scrapedAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  rawData         Json? // Store any additional scraped data
+
+  // Relations
+  companies       CompanyContact[]
+  jobs            JobContact[]
+
+  @@index([linkedinProfileId])
+  @@index([name])
+  @@map("scam_detector_contact")
+}
+

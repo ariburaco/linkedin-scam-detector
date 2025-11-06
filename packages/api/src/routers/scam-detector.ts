@@ -8,6 +8,8 @@ import { publicProcedure, router } from "../index";
 import type { ScamAnalysisResult } from "../schemas/scam-analysis";
 import { aiService } from "../services/ai.service";
 import { batchEmbeddingService } from "../services/batch-embedding.service";
+import { CompanyService } from "../services/company.service";
+import { ContactService } from "../services/contact.service";
 import { DiscoveredJobService } from "../services/discovered-job.service";
 import { FeatureFlagsService } from "../services/feature-flags.service";
 import { FeedbackService } from "../services/feedback.service";
@@ -201,6 +203,38 @@ export const scamDetectorRouter = router({
         employmentType: z.string().optional(),
         postedDate: z.string().optional(),
         rawData: z.record(z.any(), z.any()).optional(),
+        // Company and contact data (optional)
+        companyData: z
+          .object({
+            linkedinCompanyId: z.string(),
+            name: z.string(),
+            url: z.string(),
+            logoUrl: z.string().optional(),
+            description: z.string().optional(),
+            industry: z.string().optional(),
+            employeeCount: z.string().optional(),
+            linkedinEmployeeCount: z.string().optional(),
+            followerCount: z.string().optional(),
+            rawData: z.record(z.any(), z.any()).optional(),
+          })
+          .optional(),
+        contacts: z
+          .array(
+            z.object({
+              linkedinProfileId: z.string(),
+              name: z.string(),
+              profileUrl: z.string(),
+              profileImageUrl: z.string().optional(),
+              isVerified: z.boolean().optional(),
+              role: z.string().optional(),
+              title: z.string().optional(),
+              connectionDegree: z.string().optional(),
+              isJobPoster: z.boolean().optional(),
+              relationshipType: z.string().optional(),
+              rawData: z.record(z.any(), z.any()).optional(),
+            })
+          )
+          .optional(),
       })
     )
     .use(scanJobCacheMiddleware)
@@ -216,6 +250,8 @@ export const scamDetectorRouter = router({
         employmentType,
         postedDate,
         rawData,
+        companyData,
+        contacts,
       } = input;
 
       // 1. Generate URL hash
@@ -234,6 +270,37 @@ export const scamDetectorRouter = router({
         // Get user ID from session if available
         const scrapedBy = ctx.session?.user?.id || null;
 
+        // Process company data if available
+        let companyId: string | null = null;
+        if (companyData) {
+          try {
+            const company = await CompanyService.createOrUpdate({
+              linkedinCompanyId: companyData.linkedinCompanyId,
+              name: companyData.name,
+              url: companyData.url,
+              logoUrl: companyData.logoUrl || null,
+              description: companyData.description || null,
+              industry: companyData.industry || null,
+              employeeCount: companyData.employeeCount || null,
+              linkedinEmployeeCount:
+                companyData.linkedinEmployeeCount || null,
+              followerCount: companyData.followerCount || null,
+              rawData: companyData.rawData || null,
+            });
+            companyId = company.id;
+            logger.info("Company created/updated from scanJob", {
+              companyId: company.id,
+              linkedinCompanyId: company.linkedinCompanyId,
+            });
+          } catch (error) {
+            logger.warn("Failed to create/update company in scanJob", {
+              error: error instanceof Error ? error.message : "Unknown error",
+              companyData,
+            });
+            // Continue with job creation even if company creation fails
+          }
+        }
+
         // Create or update job using service
         const job = await JobService.createOrUpdate({
           linkedinJobId: extractedJobId,
@@ -241,6 +308,7 @@ export const scamDetectorRouter = router({
           url: jobUrl,
           title,
           company: companyName || "",
+          companyId,
           description: jobText,
           location: location || null,
           salary: salary || null,
@@ -250,6 +318,72 @@ export const scamDetectorRouter = router({
           rawData: rawData || null,
         });
         savedJob = { id: job.id };
+
+        // Process contacts (hiring team) if available
+        if (contacts && contacts.length > 0) {
+          for (const contactData of contacts) {
+            try {
+              // Create or update contact
+              const contact = await ContactService.createOrUpdate({
+                linkedinProfileId: contactData.linkedinProfileId,
+                name: contactData.name,
+                profileUrl: contactData.profileUrl,
+                profileImageUrl: contactData.profileImageUrl || null,
+                isVerified: contactData.isVerified || false,
+                rawData: contactData.rawData || null,
+              });
+
+              // Link contact to company if we have a company
+              if (companyId) {
+                try {
+                  await ContactService.linkToCompany({
+                    contactId: contact.id,
+                    companyId,
+                    role: contactData.role || null,
+                    title: contactData.title || null,
+                    isCurrent: true, // Assume current since it's from a job posting
+                  });
+                } catch (error) {
+                  logger.warn("Failed to link contact to company in scanJob", {
+                    error:
+                      error instanceof Error ? error.message : "Unknown error",
+                    contactId: contact.id,
+                    companyId,
+                  });
+                }
+              }
+
+              // Link contact to job
+              try {
+                await ContactService.linkToJob({
+                  contactId: contact.id,
+                  jobId: job.id,
+                  relationshipType:
+                    contactData.relationshipType || "hiring_team_member",
+                  connectionDegree: contactData.connectionDegree || null,
+                  isJobPoster: contactData.isJobPoster || false,
+                });
+              } catch (error) {
+                logger.warn("Failed to link contact to job in scanJob", {
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
+                  contactId: contact.id,
+                  jobId: job.id,
+                });
+              }
+            } catch (error) {
+              logger.warn("Failed to process contact in scanJob", {
+                error: error instanceof Error ? error.message : "Unknown error",
+                contactData,
+              });
+              // Continue processing other contacts even if one fails
+            }
+          }
+          logger.info("Processed contacts from scanJob", {
+            count: contacts.length,
+            jobId: job.id,
+          });
+        }
 
         // Trigger embedding workflow if needed (fire-and-forget)
         const hasExistingEmbedding = await JobService.hasEmbedding(job.id);

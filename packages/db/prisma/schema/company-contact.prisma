@@ -1,0 +1,20 @@
+model CompanyContact {
+  id         String   @id @default(cuid())
+  companyId  String
+  contactId  String
+  role       String?  @db.VarChar(200) // e.g., "Senior Talent Acquisition Specialist"
+  title      String?  @db.Text // e.g., "Senior Talent Acquisition and Employer Branding Specialist @Pegasus Airlines"
+  isCurrent  Boolean  @default(true) // Whether this is their current role
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, contactId])
+  @@index([companyId])
+  @@index([contactId])
+  @@map("scam_detector_company_contact")
+}
+

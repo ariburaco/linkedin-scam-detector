@@ -5,6 +5,7 @@ model Job {
   url            String                      @db.Text
   title          String                      @db.VarChar(500)
   company        String                      @db.VarChar(500)
+  companyId      String? // Optional foreign key to Company model for normalization
   description    String                      @db.Text
   location       String?                     @db.VarChar(500)
   salary         String?                     @db.VarChar(200)
@@ -18,11 +19,14 @@ model Job {
   metadata       Json? // Store LLM cost and usage metadata (tokens, costs, model info, etc.)
 
   // Relations
-  analyses    JobAnalysis[]
-  extractions JobExtraction[]
+  companyRelation Company?                   @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  analyses        JobAnalysis[]
+  extractions     JobExtraction[]
+  contacts        JobContact[]
 
   @@index([jobUrlHash])
   @@index([company])
+  @@index([companyId])
   @@index([linkedinJobId])
   @@index([scrapedBy])
   @@map("scam_detector_job")

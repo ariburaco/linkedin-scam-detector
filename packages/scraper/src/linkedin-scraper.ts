@@ -9,6 +9,8 @@ import { Logger } from '@acme/shared/Logger';
 
 import { BrowserManager } from './browser-manager';
 import type {
+  CompanyData,
+  ContactData,
   ScrapeJobDetailsParams,
   ScrapeJobSearchParams,
   ScrapedJobData,
@@ -387,6 +389,307 @@ export class LinkedInScraper {
   }
 
   /**
+   * Extract company information from job details page
+   */
+  private async extractCompanyInfo(page: Page): Promise<CompanyData | null> {
+    try {
+      // Find the "About the company" section
+      const companySectionSelectors = [
+        '.jobs-company__box',
+        '.jobs-company__card',
+        '[data-test-id="about-us"]',
+        'section[class*="company"]',
+      ];
+
+      let companySection: any = null;
+      for (const selector of companySectionSelectors) {
+        companySection = await page.$(selector);
+        if (companySection) break;
+      }
+
+      if (!companySection) {
+        logger.debug('Company section not found');
+        return null;
+      }
+
+      // Extract company name
+      const name = await page.evaluate((el) => {
+        const nameEl =
+          el.querySelector('h3') ||
+          el.querySelector('a[data-test-id="about-us"]') ||
+          el.querySelector('.jobs-company__name');
+        return nameEl?.textContent?.trim() || null;
+      }, companySection);
+
+      if (!name) {
+        logger.debug('Company name not found');
+        return null;
+      }
+
+      // Extract company URL and LinkedIn ID
+      const companyUrl = await page.evaluate((el) => {
+        const linkEl = el.querySelector('a[href*="/company/"]');
+        return linkEl?.getAttribute('href') || null;
+      }, companySection);
+
+      let linkedinCompanyId: string | null = null;
+      if (companyUrl) {
+        const match = companyUrl.match(/\/company\/([^/?]+)/);
+        if (match?.[1]) {
+          linkedinCompanyId = match[1];
+        }
+      }
+
+      if (!linkedinCompanyId) {
+        logger.debug('Could not extract LinkedIn company ID');
+        return null;
+      }
+
+      // Extract logo URL
+      const logoUrl = await page.evaluate((el) => {
+        const imgEl = el.querySelector('img');
+        return imgEl?.getAttribute('src') || null;
+      }, companySection);
+
+      // Extract description
+      let description = await page.evaluate((el) => {
+        const descEl =
+          el.querySelector('.jobs-company__description') ||
+          el.querySelector('p');
+        return descEl?.textContent?.trim() || null;
+      }, companySection);
+
+      // Try to expand description if "Show more" button exists
+      try {
+        const showMoreButton = await companySection.$(
+          'button[aria-label*="Show more"], button[aria-label*="show more"]'
+        );
+        if (showMoreButton) {
+          await showMoreButton.click();
+          await sleep(500);
+          description = await page.evaluate((el) => {
+            const descEl =
+              el.querySelector('.jobs-company__description') ||
+              el.querySelector('p');
+            return descEl?.textContent?.trim() || null;
+          }, companySection) || description;
+        }
+      } catch (error) {
+        // Ignore errors when trying to expand description
+      }
+
+      // Extract industry
+      const industry = await page.evaluate((el) => {
+        const industryEl =
+          el.querySelector('.jobs-company__industry') ||
+          el.querySelector('[data-test-id="company-industry"]');
+        return industryEl?.textContent?.trim() || null;
+      }, companySection);
+
+      // Extract employee counts
+      const employeeCount = await page.evaluate((el) => {
+        const countEl =
+          el.querySelector('.jobs-company__employee-count') ||
+          el.querySelector('[data-test-id="company-size"]');
+        return countEl?.textContent?.trim() || null;
+      }, companySection);
+
+      const linkedinEmployeeCount = await page.evaluate((el) => {
+        const countEl = el.querySelector('.jobs-company__linkedin-employee-count');
+        return countEl?.textContent?.trim() || null;
+      }, companySection);
+
+      // Extract follower count
+      const followerCount = await page.evaluate((el) => {
+        const countEl =
+          el.querySelector('.jobs-company__follower-count') ||
+          el.querySelector('[data-test-id="company-followers"]');
+        return countEl?.textContent?.trim() || null;
+      }, companySection);
+
+      // Build full company URL if relative
+      const fullUrl = companyUrl.startsWith('http')
+        ? companyUrl
+        : `https://www.linkedin.com${companyUrl}`;
+
+      return {
+        linkedinCompanyId,
+        name,
+        url: fullUrl,
+        logoUrl: logoUrl || undefined,
+        description: description || undefined,
+        industry: industry || undefined,
+        employeeCount: employeeCount || undefined,
+        linkedinEmployeeCount: linkedinEmployeeCount || undefined,
+        followerCount: followerCount || undefined,
+      };
+    } catch (error) {
+      logger.warn('Failed to extract company info', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Extract hiring team contacts from job details page
+   */
+  private async extractHiringTeam(page: Page): Promise<ContactData[]> {
+    const contacts: ContactData[] = [];
+
+    try {
+      // Find the "Meet the hiring team" section
+      const hiringTeamSelectors = [
+        'section[data-test-id="hiring-team"]',
+        '.jobs-hiring-team',
+        '[class*="hiring-team"]',
+      ];
+
+      let hiringTeamSection: any = null;
+      for (const selector of hiringTeamSelectors) {
+        hiringTeamSection = await page.$(selector);
+        if (hiringTeamSection) break;
+      }
+
+      if (!hiringTeamSection) {
+        logger.debug('Hiring team section not found');
+        return contacts;
+      }
+
+      // Find all contact cards
+      const contactCardSelectors = [
+        '.jobs-hiring-team__member',
+        '.hiring-team-member',
+        'li[class*="hiring-team"]',
+        '[data-test-id="hiring-team-member"]',
+      ];
+
+      let contactCards: any[] = [];
+      for (const selector of contactCardSelectors) {
+        contactCards = await hiringTeamSection.$$(selector);
+        if (contactCards.length > 0) break;
+      }
+
+      for (const card of contactCards) {
+        try {
+          // Extract profile URL
+          const profileUrl = await page.evaluate((el) => {
+            const linkEl = el.querySelector('a[href*="/in/"]');
+            return linkEl?.getAttribute('href') || null;
+          }, card);
+
+          if (!profileUrl) continue;
+
+          // Extract LinkedIn profile ID from URL like /in/ebrueksi
+          const profileMatch = profileUrl.match(/\/in\/([^/?]+)/);
+          if (!profileMatch?.[1]) continue;
+
+          const linkedinProfileId = profileMatch[1];
+
+          // Build full profile URL if relative
+          const fullProfileUrl = profileUrl.startsWith('http')
+            ? profileUrl
+            : `https://www.linkedin.com${profileUrl}`;
+
+          // Extract name
+          const name = await page.evaluate((el) => {
+            const nameEl =
+              el.querySelector('.hiring-team-member__name') ||
+              el.querySelector('.jobs-hiring-team__member-name');
+            return nameEl?.textContent?.trim() || null;
+          }, card);
+
+          if (!name) continue;
+
+          // Extract profile image
+          const profileImageUrl = await page.evaluate((el) => {
+            const imgEl = el.querySelector('img');
+            return imgEl?.getAttribute('src') || null;
+          }, card);
+
+          // Extract verified status
+          const isVerified = await page.evaluate((el) => {
+            return (
+              el.querySelector('[aria-label*="Verified"]') !== null ||
+              el.querySelector('[class*="verified"]') !== null
+            );
+          }, card);
+
+          // Extract role/title
+          const role = await page.evaluate((el) => {
+            const roleEl =
+              el.querySelector('.hiring-team-member__role') ||
+              el.querySelector('.jobs-hiring-team__member-role');
+            return roleEl?.textContent?.trim() || null;
+          }, card);
+
+          // Extract full title
+          const title = await page.evaluate((el) => {
+            const titleEl =
+              el.querySelector('.hiring-team-member__title') ||
+              el.querySelector('.jobs-hiring-team__member-title');
+            return titleEl?.textContent?.trim() || null;
+          }, card);
+
+          // Extract connection degree
+          const connectionDegree = await page.evaluate((el) => {
+            const connEl =
+              el.querySelector('.hiring-team-member__connection') ||
+              el.querySelector('.jobs-hiring-team__member-connection');
+            return connEl?.textContent?.trim() || null;
+          }, card);
+
+          // Check if this is the job poster
+          const isJobPoster = await page.evaluate((el) => {
+            const text = el.textContent?.toLowerCase() || '';
+            return (
+              text.includes('posted') ||
+              text.includes('job poster') ||
+              el.querySelector('[data-test-id="job-poster"]') !== null
+            );
+          }, card);
+
+          // Determine relationship type
+          let relationshipType = 'hiring_team_member';
+          if (isJobPoster) {
+            relationshipType = 'job_poster';
+          } else if (role?.toLowerCase().includes('manager')) {
+            relationshipType = 'hiring_manager';
+          } else if (
+            role?.toLowerCase().includes('recruiter') ||
+            role?.toLowerCase().includes('talent')
+          ) {
+            relationshipType = 'recruiter';
+          }
+
+          contacts.push({
+            linkedinProfileId,
+            name,
+            profileUrl: fullProfileUrl,
+            profileImageUrl: profileImageUrl || undefined,
+            isVerified: isVerified || false,
+            role: role || undefined,
+            title: title || undefined,
+            connectionDegree: connectionDegree || undefined,
+            isJobPoster: isJobPoster || false,
+            relationshipType,
+          });
+        } catch (error) {
+          logger.warn('Failed to extract contact from hiring team', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+    } catch (error) {
+      logger.warn('Failed to extract hiring team', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
+    return contacts;
+  }
+
+  /**
    * Extract full job details from job posting page
    */
   private async extractJobDetails(
@@ -565,11 +868,18 @@ export class LinkedInScraper {
         return applyButton !== null;
       });
 
+      // Extract company information
+      const companyData = await this.extractCompanyInfo(page);
+
+      // Extract hiring team contacts
+      const contacts = await this.extractHiringTeam(page);
+
       return {
         linkedinJobId: linkedinJobId || '',
         url,
         title,
         company,
+        companyData: companyData || undefined,
         location: location || undefined,
         employmentType: employmentType || undefined,
         description: description || undefined,
@@ -580,6 +890,7 @@ export class LinkedInScraper {
         seniorityLevel: seniorityLevel || undefined,
         jobFunction,
         industries,
+        contacts: contacts.length > 0 ? contacts : undefined,
         discoverySource: 'scraper',
       };
     } catch (error) {

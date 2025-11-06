@@ -10,6 +10,8 @@ import prisma from '@acme/db';
 import type { CreateDiscoveredJobInput } from '@acme/api/services/discovered-job.service';
 import { DiscoveredJobService } from '@acme/api/services/discovered-job.service';
 import { JobService } from '@acme/api/services/job.service';
+import { CompanyService } from '@acme/api/services/company.service';
+import { ContactService } from '@acme/api/services/contact.service';
 import { parsePostedDate } from '@acme/api/utils/date-utils';
 import { scrapeLinkedInJobDetails } from './linkedin-scraper.activity';
 
@@ -217,6 +219,37 @@ export async function processDiscoveredJobToJob(
       .update(scrapedDetails.url)
       .digest('hex');
 
+    // Process company data if available
+    let companyId: string | null = null;
+    if (scrapedDetails.companyData) {
+      try {
+        const company = await CompanyService.createOrUpdate({
+          linkedinCompanyId: scrapedDetails.companyData.linkedinCompanyId,
+          name: scrapedDetails.companyData.name,
+          url: scrapedDetails.companyData.url,
+          logoUrl: scrapedDetails.companyData.logoUrl || null,
+          description: scrapedDetails.companyData.description || null,
+          industry: scrapedDetails.companyData.industry || null,
+          employeeCount: scrapedDetails.companyData.employeeCount || null,
+          linkedinEmployeeCount:
+            scrapedDetails.companyData.linkedinEmployeeCount || null,
+          followerCount: scrapedDetails.companyData.followerCount || null,
+          rawData: scrapedDetails.companyData.rawData || null,
+        });
+        companyId = company.id;
+        logger.info('Company created/updated', {
+          companyId: company.id,
+          linkedinCompanyId: company.linkedinCompanyId,
+        });
+      } catch (error) {
+        logger.warn('Failed to create/update company', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          companyData: scrapedDetails.companyData,
+        });
+        // Continue with job creation even if company creation fails
+      }
+    }
+
     // Create Job entry
     const job = await JobService.createOrUpdate({
       linkedinJobId: scrapedDetails.linkedinJobId,
@@ -224,6 +257,7 @@ export async function processDiscoveredJobToJob(
       url: scrapedDetails.url,
       title: scrapedDetails.title,
       company: scrapedDetails.company,
+      companyId,
       description: scrapedDetails.description || '',
       location: scrapedDetails.location || null,
       salary: scrapedDetails.salary || null,
@@ -232,6 +266,70 @@ export async function processDiscoveredJobToJob(
       scrapedBy: discoveredJob.discoveredBy || null,
       rawData: scrapedDetails.rawData || null,
     });
+
+    // Process contacts (hiring team) if available
+    if (scrapedDetails.contacts && scrapedDetails.contacts.length > 0) {
+      for (const contactData of scrapedDetails.contacts) {
+        try {
+          // Create or update contact
+          const contact = await ContactService.createOrUpdate({
+            linkedinProfileId: contactData.linkedinProfileId,
+            name: contactData.name,
+            profileUrl: contactData.profileUrl,
+            profileImageUrl: contactData.profileImageUrl || null,
+            isVerified: contactData.isVerified || false,
+            rawData: contactData.rawData || null,
+          });
+
+          // Link contact to company if we have a company
+          if (companyId) {
+            try {
+              await ContactService.linkToCompany({
+                contactId: contact.id,
+                companyId,
+                role: contactData.role || null,
+                title: contactData.title || null,
+                isCurrent: true, // Assume current since it's from a job posting
+              });
+            } catch (error) {
+              logger.warn('Failed to link contact to company', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                contactId: contact.id,
+                companyId,
+              });
+            }
+          }
+
+          // Link contact to job
+          try {
+            await ContactService.linkToJob({
+              contactId: contact.id,
+              jobId: job.id,
+              relationshipType:
+                contactData.relationshipType || 'hiring_team_member',
+              connectionDegree: contactData.connectionDegree || null,
+              isJobPoster: contactData.isJobPoster || false,
+            });
+          } catch (error) {
+            logger.warn('Failed to link contact to job', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              contactId: contact.id,
+              jobId: job.id,
+            });
+          }
+        } catch (error) {
+          logger.warn('Failed to process contact', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            contactData,
+          });
+          // Continue processing other contacts even if one fails
+        }
+      }
+      logger.info('Processed contacts', {
+        count: scrapedDetails.contacts.length,
+        jobId: job.id,
+      });
+    }
 
     // Update discovered job as completed
     await DiscoveredJobService.markAsCompleted(input.discoveredJobId, job.id);

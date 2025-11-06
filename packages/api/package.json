@@ -26,6 +26,8 @@
     "./services/discovered-job.service": "./src/services/discovered-job.service.ts",
     "./services/feature-flags.service": "./src/services/feature-flags.service.ts",
     "./services/linkedin-cookies.service": "./src/services/linkedin-cookies.service.ts",
+    "./services/company.service": "./src/services/company.service.ts",
+    "./services/contact.service": "./src/services/contact.service.ts",
     "./schemas/job-extraction": "./src/schemas/job-extraction.ts",
     "./schemas/feature-flags": "./src/schemas/feature-flags.ts",
     "./utils/date-utils": "./src/utils/date-utils.ts"

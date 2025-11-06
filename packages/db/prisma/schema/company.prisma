@@ -1,0 +1,25 @@
+model Company {
+  id                   String   @id @default(cuid())
+  linkedinCompanyId    String   @unique @db.VarChar(200) // e.g., "pegasus-airlines" from /company/pegasus-airlines/
+  name                 String   @db.VarChar(500)
+  url                  String   @db.Text // Full LinkedIn company URL
+  logoUrl              String?  @db.Text
+  description          String?  @db.Text
+  industry             String?  @db.VarChar(200)
+  employeeCount        String?  @db.VarChar(100) // e.g., "5,001-10,000 employees"
+  linkedinEmployeeCount String? @db.VarChar(100) // e.g., "6,997 on LinkedIn"
+  followerCount        String?  @db.VarChar(100) // e.g., "412,931 followers"
+  scrapedAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  rawData              Json? // Store any additional scraped data
+
+  // Relations
+  jobs                 Job[]
+  contacts             CompanyContact[]
+
+  @@index([linkedinCompanyId])
+  @@index([name])
+  @@index([updatedAt])
+  @@map("scam_detector_company")
+}
+

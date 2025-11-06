@@ -1,7 +1,12 @@
 import { convertHtmlToMarkdown } from "@acme/shared/utils";
 
 import { findElement, SELECTORS } from "./selectors";
-import type { DiscoveredJobData, JobData } from "./types";
+import type {
+  CompanyData,
+  ContactData,
+  DiscoveredJobData,
+  JobData,
+} from "./types";
 
 import { extensionLoggerContent } from "@/shared/loggers";
 
@@ -225,6 +230,259 @@ export function extractJobDataFromCard(
 }
 
 /**
+ * Extract company information from job details page
+ */
+function extractCompanyInfo(document: Document): CompanyData | null {
+  try {
+    // Find the "About the company" section
+    const companySectionSelectors = [
+      ".jobs-company__box",
+      ".jobs-company__card",
+      '[data-test-id="about-us"]',
+      'section[class*="company"]',
+    ];
+
+    let companySection: Element | null = null;
+    for (const selector of companySectionSelectors) {
+      companySection = findElement(document, [selector]);
+      if (companySection) break;
+    }
+
+    if (!companySection) {
+      return null;
+    }
+
+    // Extract company name
+    const nameElement =
+      companySection.querySelector("h3") ||
+      companySection.querySelector('a[data-test-id="about-us"]') ||
+      companySection.querySelector(".jobs-company__name");
+    const name = nameElement?.textContent?.trim() || null;
+
+    if (!name) {
+      return null;
+    }
+
+    // Extract company URL and LinkedIn ID
+    const companyLinkElement = companySection.querySelector(
+      'a[href*="/company/"]'
+    );
+    const companyUrl = companyLinkElement?.getAttribute("href") || null;
+
+    let linkedinCompanyId: string | null = null;
+    if (companyUrl) {
+      const match = companyUrl.match(/\/company\/([^/?]+)/);
+      if (match?.[1]) {
+        linkedinCompanyId = match[1];
+      }
+    }
+
+    if (!linkedinCompanyId) {
+      return null;
+    }
+
+    // Extract logo URL
+    const logoElement = companySection.querySelector("img");
+    const logoUrl = logoElement?.getAttribute("src") || null;
+
+    // Extract description
+    const descriptionElement =
+      companySection.querySelector(".jobs-company__description") ||
+      companySection.querySelector("p");
+    const description = descriptionElement?.textContent?.trim() || null;
+
+    // Extract industry
+    const industryElement =
+      companySection.querySelector(".jobs-company__industry") ||
+      companySection.querySelector('[data-test-id="company-industry"]');
+    const industry = industryElement?.textContent?.trim() || null;
+
+    // Extract employee counts
+    const employeeCountElement =
+      companySection.querySelector(".jobs-company__employee-count") ||
+      companySection.querySelector('[data-test-id="company-size"]');
+    const employeeCount = employeeCountElement?.textContent?.trim() || null;
+
+    const linkedinEmployeeCountElement = companySection.querySelector(
+      ".jobs-company__linkedin-employee-count"
+    );
+    const linkedinEmployeeCount =
+      linkedinEmployeeCountElement?.textContent?.trim() || null;
+
+    // Extract follower count
+    const followerCountElement =
+      companySection.querySelector(".jobs-company__follower-count") ||
+      companySection.querySelector('[data-test-id="company-followers"]');
+    const followerCount = followerCountElement?.textContent?.trim() || null;
+
+    // Build full company URL if relative
+    const fullUrl = companyUrl?.startsWith("http")
+      ? companyUrl
+      : `https://www.linkedin.com${companyUrl}`;
+
+    return {
+      linkedinCompanyId,
+      name,
+      url: fullUrl || "",
+      logoUrl: logoUrl || undefined,
+      description: description || undefined,
+      industry: industry || undefined,
+      employeeCount: employeeCount || undefined,
+      linkedinEmployeeCount: linkedinEmployeeCount || undefined,
+      followerCount: followerCount || undefined,
+    };
+  } catch (error) {
+    extensionLoggerContent.warn(
+      "[LinkedIn Scam Detector] Failed to extract company info:",
+      error
+    );
+    return null;
+  }
+}
+
+/**
+ * Extract hiring team contacts from job details page
+ */
+function extractHiringTeam(document: Document): ContactData[] {
+  const contacts: ContactData[] = [];
+
+  try {
+    // Find the "Meet the hiring team" section
+    const hiringTeamSelectors = [
+      'section[data-test-id="hiring-team"]',
+      ".jobs-hiring-team",
+      '[class*="hiring-team"]',
+    ];
+
+    let hiringTeamSection: Element | null = null;
+    for (const selector of hiringTeamSelectors) {
+      hiringTeamSection = findElement(document, [selector]);
+      if (hiringTeamSection) break;
+    }
+
+    if (!hiringTeamSection) {
+      return contacts;
+    }
+
+    // Find all contact cards
+    const contactCardSelectors = [
+      ".jobs-hiring-team__member",
+      ".hiring-team-member",
+      'li[class*="hiring-team"]',
+      '[data-test-id="hiring-team-member"]',
+    ];
+
+    let contactCards: Element[] = [];
+    for (const selector of contactCardSelectors) {
+      contactCards = Array.from(hiringTeamSection.querySelectorAll(selector));
+      if (contactCards.length > 0) break;
+    }
+
+    for (const card of contactCards) {
+      try {
+        // Extract profile URL
+        const profileLinkElement = card.querySelector('a[href*="/in/"]');
+        const profileUrl = profileLinkElement?.getAttribute("href") || null;
+
+        if (!profileUrl) continue;
+
+        // Extract LinkedIn profile ID from URL like /in/ebrueksi
+        const profileMatch = profileUrl.match(/\/in\/([^/?]+)/);
+        if (!profileMatch?.[1]) continue;
+
+        const linkedinProfileId = profileMatch[1];
+
+        // Build full profile URL if relative
+        const fullProfileUrl = profileUrl.startsWith("http")
+          ? profileUrl
+          : `https://www.linkedin.com${profileUrl}`;
+
+        // Extract name
+        const nameElement =
+          card.querySelector(".hiring-team-member__name") ||
+          card.querySelector(".jobs-hiring-team__member-name");
+        const name = nameElement?.textContent?.trim() || null;
+
+        if (!name) continue;
+
+        // Extract profile image
+        const profileImageElement = card.querySelector("img");
+        const profileImageUrl =
+          profileImageElement?.getAttribute("src") || null;
+
+        // Extract verified status
+        const isVerified =
+          card.querySelector('[aria-label*="Verified"]') !== null ||
+          card.querySelector('[class*="verified"]') !== null;
+
+        // Extract role/title
+        const roleElement =
+          card.querySelector(".hiring-team-member__role") ||
+          card.querySelector(".jobs-hiring-team__member-role");
+        const role = roleElement?.textContent?.trim() || null;
+
+        // Extract full title
+        const titleElement =
+          card.querySelector(".hiring-team-member__title") ||
+          card.querySelector(".jobs-hiring-team__member-title");
+        const title = titleElement?.textContent?.trim() || null;
+
+        // Extract connection degree
+        const connectionElement =
+          card.querySelector(".hiring-team-member__connection") ||
+          card.querySelector(".jobs-hiring-team__member-connection");
+        const connectionDegree = connectionElement?.textContent?.trim() || null;
+
+        // Check if this is the job poster
+        const cardText = card.textContent?.toLowerCase() || "";
+        const isJobPoster =
+          cardText.includes("posted") ||
+          cardText.includes("job poster") ||
+          card.querySelector('[data-test-id="job-poster"]') !== null;
+
+        // Determine relationship type
+        let relationshipType = "hiring_team_member";
+        if (isJobPoster) {
+          relationshipType = "job_poster";
+        } else if (role?.toLowerCase().includes("manager")) {
+          relationshipType = "hiring_manager";
+        } else if (
+          role?.toLowerCase().includes("recruiter") ||
+          role?.toLowerCase().includes("talent")
+        ) {
+          relationshipType = "recruiter";
+        }
+
+        contacts.push({
+          linkedinProfileId,
+          name,
+          profileUrl: fullProfileUrl,
+          profileImageUrl: profileImageUrl || undefined,
+          isVerified: isVerified || false,
+          role: role || undefined,
+          title: title || undefined,
+          connectionDegree: connectionDegree || undefined,
+          isJobPoster: isJobPoster || false,
+          relationshipType,
+        });
+      } catch (error) {
+        extensionLoggerContent.warn(
+          "[LinkedIn Scam Detector] Failed to extract contact from hiring team:",
+          error
+        );
+      }
+    }
+  } catch (error) {
+    extensionLoggerContent.warn(
+      "[LinkedIn Scam Detector] Failed to extract hiring team:",
+      error
+    );
+  }
+
+  return contacts;
+}
+
+/**
  * Extract job data from a full job posting page
  */
 export function extractJobDataFromPage(): JobData | null {
@@ -294,6 +552,12 @@ export function extractJobDataFromPage(): JobData | null {
     // Extract posted date
     const postedDate = extractPostedDate(document);
 
+    // Extract company information
+    const companyData = extractCompanyInfo(document);
+
+    // Extract hiring team contacts
+    const contacts = extractHiringTeam(document);
+
     return {
       title,
       company,
@@ -304,6 +568,8 @@ export function extractJobDataFromPage(): JobData | null {
       employmentType,
       postedDate,
       linkedinJobId,
+      companyData: companyData || undefined,
+      contacts: contacts.length > 0 ? contacts : undefined,
     };
   } catch (error) {
     extensionLoggerContent.error(

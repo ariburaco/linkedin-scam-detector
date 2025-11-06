@@ -1,7 +1,7 @@
 import type { PlasmoMessaging } from "@plasmohq/messaging";
 
 import { analyzeJobPosting } from "@/lib/local-rules";
-import type { JobData } from "@/lib/local-rules/types";
+import type { JobData } from "@/lib/linkedin-dom/types";
 import {
   incrementScannedToday,
   incrementThreatsBlocked,
@@ -108,6 +108,9 @@ const handler: PlasmoMessaging.MessageHandler<
           // Store any additional fields in rawData
           linkedinJobId: jobData.linkedinJobId,
         },
+        // Include company and contact data if available
+        companyData: jobData.companyData,
+        contacts: jobData.contacts,
       })
       .then((geminiResult) => {
         // Get the sender tab ID from the request
