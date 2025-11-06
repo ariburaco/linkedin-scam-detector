@@ -4,15 +4,16 @@
  * Supports both local browser instances and Browserless WebSocket connections
  */
 
-import type { Browser, Page } from "puppeteer";
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import { env } from "@acme/shared/env";
-import { Logger } from "@acme/shared/Logger";
+import type { Browser, Page } from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { env } from '@acme/shared/env';
+import { Logger } from '@acme/shared/Logger';
 
-import type { BrowserConfig } from "./types";
+import type { BrowserConfig } from './types';
+import type { LinkedInCookie } from './cookie-utils';
 
-const logger = new Logger("BrowserManager");
+const logger = new Logger('BrowserManager');
 
 // Add stealth plugin
 puppeteer.use(StealthPlugin());
@@ -22,19 +23,23 @@ export class BrowserManager {
   private config: BrowserConfig;
   private isClosing = false;
   private browserlessWsUrl: string | null = null;
+  private cookieProvider?: () => Promise<LinkedInCookie[]>;
 
-  constructor(config?: BrowserConfig) {
+  constructor(
+    config?: BrowserConfig,
+    cookieProvider?: () => Promise<LinkedInCookie[]>
+  ) {
     this.config = {
       headless: env.SCRAPER_HEADLESS ?? true,
       timeout: env.SCRAPER_TIMEOUT ?? 30000,
       args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--disable-gpu",
-        "--window-size=1920,1080",
-        "--disable-blink-features=AutomationControlled",
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--window-size=1920,1080',
+        '--disable-blink-features=AutomationControlled',
       ],
       ...config,
     };
@@ -42,9 +47,14 @@ export class BrowserManager {
     // Check for Browserless WebSocket URL
     if (env.BROWSERLESS_WS_URL) {
       this.browserlessWsUrl = env.BROWSERLESS_WS_URL;
-      logger.info("Browserless WebSocket URL configured", {
-        url: this.browserlessWsUrl.replace(/\/[^/]*$/, "/***"), // Mask token if present
+      logger.info('Browserless WebSocket URL configured', {
+        url: this.browserlessWsUrl.replace(/\/[^/]*$/, '/***'), // Mask token if present
       });
+    }
+
+    // Store cookie provider if provided
+    if (cookieProvider) {
+      this.cookieProvider = cookieProvider;
     }
   }
 
@@ -75,8 +85,8 @@ export class BrowserManager {
    * Connect to Browserless via WebSocket
    */
   private async connectToBrowserless(): Promise<Browser> {
-    logger.info("Connecting to Browserless", {
-      url: this.browserlessWsUrl?.replace(/\/[^/]*$/, "/***"), // Mask token
+    logger.info('Connecting to Browserless', {
+      url: this.browserlessWsUrl?.replace(/\/[^/]*$/, '/***'), // Mask token
     });
 
     try {
@@ -86,19 +96,19 @@ export class BrowserManager {
         defaultViewport: null, // Use Browserless default viewport
       });
 
-      logger.info("Connected to Browserless successfully");
+      logger.info('Connected to Browserless successfully');
 
       // Handle browser disconnection
-      this.browser.on("disconnected", () => {
-        logger.warn("Browserless connection disconnected");
+      this.browser.on('disconnected', () => {
+        logger.warn('Browserless connection disconnected');
         this.browser = null;
       });
 
       return this.browser;
     } catch (error) {
-      logger.error("Failed to connect to Browserless", {
-        error: error instanceof Error ? error.message : "Unknown error",
-        url: this.browserlessWsUrl?.replace(/\/[^/]*$/, "/***"),
+      logger.error('Failed to connect to Browserless', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        url: this.browserlessWsUrl?.replace(/\/[^/]*$/, '/***'),
       });
       throw error;
     }
@@ -108,7 +118,7 @@ export class BrowserManager {
    * Launch local browser instance
    */
   private async launchLocalBrowser(): Promise<Browser> {
-    logger.info("Launching local browser", {
+    logger.info('Launching local browser', {
       headless: this.config.headless,
       timeout: this.config.timeout,
     });
@@ -121,25 +131,25 @@ export class BrowserManager {
         userDataDir: this.config.userDataDir,
       });
 
-      logger.info("Local browser launched successfully");
+      logger.info('Local browser launched successfully');
 
       // Handle browser disconnection
-      this.browser.on("disconnected", () => {
-        logger.warn("Browser disconnected");
+      this.browser.on('disconnected', () => {
+        logger.warn('Browser disconnected');
         this.browser = null;
       });
 
       return this.browser;
     } catch (error) {
-      logger.error("Failed to launch local browser", {
-        error: error instanceof Error ? error.message : "Unknown error",
+      logger.error('Failed to launch local browser', {
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
   }
 
   /**
-   * Create a new page with stealth configuration
+   * Create a new page with stealth configuration and cookie injection
    */
   async createPage(): Promise<Page> {
     const browser = await this.getBrowser();
@@ -154,22 +164,49 @@ export class BrowserManager {
 
     // Set user agent
     await page.setUserAgent(
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
 
     // Set extra headers
     await page.setExtraHTTPHeaders({
-      "Accept-Language": "en-US,en;q=0.9",
+      'Accept-Language': 'en-US,en;q=0.9',
     });
 
     // Remove webdriver property
     await page.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, "webdriver", {
+      Object.defineProperty(navigator, 'webdriver', {
         get: () => false,
       });
     });
 
-    logger.debug("Page created with stealth configuration");
+    // Inject LinkedIn cookies if available
+    if (this.cookieProvider) {
+      try {
+        const cookies = await this.cookieProvider();
+        if (cookies.length > 0) {
+          // Get browser context (non-deprecated API)
+          const context =
+            browser.browserContexts()[0] || browser.defaultBrowserContext();
+
+          // Set cookies in browser context (non-deprecated API)
+          await context.setCookie(...cookies);
+
+          logger.info('LinkedIn cookies injected', {
+            count: cookies.length,
+            domains: [...new Set(cookies.map((c) => c.domain))],
+          });
+        } else {
+          logger.warn('No LinkedIn cookies available for injection');
+        }
+      } catch (error) {
+        logger.warn('Failed to inject LinkedIn cookies', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        // Continue without cookies - graceful degradation
+      }
+    }
+
+    logger.debug('Page created with stealth configuration');
 
     return page;
   }
@@ -187,18 +224,18 @@ export class BrowserManager {
 
     try {
       if (this.browserlessWsUrl) {
-        logger.info("Disconnecting from Browserless");
+        logger.info('Disconnecting from Browserless');
         await this.browser.disconnect();
-        logger.info("Disconnected from Browserless successfully");
+        logger.info('Disconnected from Browserless successfully');
       } else {
-        logger.info("Closing local browser");
+        logger.info('Closing local browser');
         await this.browser.close();
-        logger.info("Local browser closed successfully");
+        logger.info('Local browser closed successfully');
       }
       this.browser = null;
     } catch (error) {
-      logger.error("Error closing browser", {
-        error: error instanceof Error ? error.message : "Unknown error",
+      logger.error('Error closing browser', {
+        error: error instanceof Error ? error.message : 'Unknown error',
         isBrowserless: !!this.browserlessWsUrl,
       });
       this.browser = null;
@@ -221,4 +258,3 @@ export class BrowserManager {
     return this.browser !== null && this.browser.isConnected();
   }
 }
-

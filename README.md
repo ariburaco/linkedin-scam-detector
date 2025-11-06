@@ -62,3 +62,14 @@ acme/
 - `bun check-types`: Check TypeScript types across all apps
 - `bun db:push`: Push schema changes to database
 - `bun db:studio`: Open database studio UI
+- `pbpaste | bun cookies:import`: Import LinkedIn cookies from clipboard
+- `bun cookies:check`: Check LinkedIn cookies
+- `bun schedule:list`: List all schedules
+- `bun schedule:trigger`: Trigger a schedule
+- `bun schedule:workflow`: Trigger a workflow
+- `bun docker:up`: Start all Docker containers
+- `bun docker:down`: Stop all Docker containers
+- `bun docker:stop`: Stop all Docker containers
+- `bun docker:start`: Start all Docker containers
+- `bun docker:restart`: Restart all Docker containers
+- `bun docker:clean`: Clean up all Docker containers

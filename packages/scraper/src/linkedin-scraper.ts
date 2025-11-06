@@ -62,7 +62,17 @@ export class LinkedInScraper {
 
       // Check for login requirement
       if (await requiresLogin(page)) {
-        throw new Error('LinkedIn login required');
+        // Check if we have cookies (might be expired)
+        const hasCookies = this.browserManager['cookieProvider'] !== undefined;
+        if (hasCookies) {
+          logger.warn(
+            'LinkedIn login required despite cookies - cookies may be expired or invalid'
+          );
+          return []; // Return empty results instead of throwing (graceful degradation)
+        }
+        throw new Error(
+          'LinkedIn login required - no authentication cookies available'
+        );
       }
 
       // Check for rate limiting
@@ -128,7 +138,19 @@ export class LinkedInScraper {
 
       // Check for login requirement
       if (await requiresLogin(page)) {
-        throw new Error('LinkedIn login required');
+        // Check if we have cookies (might be expired)
+        // Access cookieProvider via private property check
+        const hasCookies =
+          (this.browserManager as any).cookieProvider !== undefined;
+        if (hasCookies) {
+          logger.warn(
+            'LinkedIn login required despite cookies - cookies may be expired or invalid'
+          );
+          return null; // Return null instead of throwing (graceful degradation)
+        }
+        throw new Error(
+          'LinkedIn login required - no authentication cookies available'
+        );
       }
 
       // Check for rate limiting

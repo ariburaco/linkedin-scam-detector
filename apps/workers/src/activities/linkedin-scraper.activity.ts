@@ -4,8 +4,10 @@
  */
 
 import { Logger } from "@acme/shared/Logger";
+import { LinkedInCookiesService } from "@acme/api/services/linkedin-cookies.service";
 import {
   LinkedInScraper,
+  BrowserManager,
   type ScrapeJobDetailsParams,
   type ScrapeJobSearchParams,
   type ScrapedJobData,
@@ -18,7 +20,22 @@ let scraperInstance: LinkedInScraper | null = null;
 
 function getScraper(): LinkedInScraper {
   if (!scraperInstance) {
-    scraperInstance = new LinkedInScraper();
+    // Create browser manager with cookie provider
+    const browserManager = new BrowserManager(
+      undefined,
+      async () => {
+        try {
+          return await LinkedInCookiesService.getCookies();
+        } catch (error) {
+          logger.warn("Failed to load LinkedIn cookies", {
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          return [];
+        }
+      }
+    );
+
+    scraperInstance = new LinkedInScraper(browserManager);
   }
   return scraperInstance;
 }

@@ -1,0 +1,19 @@
+model LinkedInCookie {
+  id        String   @id @default(uuid())
+  name      String
+  value     String
+  domain    String
+  path      String   @default("/")
+  expires   DateTime?
+  httpOnly  Boolean  @default(false)
+  secure    Boolean  @default(true)
+  sameSite  String?  // "Strict", "Lax", "None", or null
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, domain])
+  @@index([name, domain])
+  @@index([domain])
+  @@map("linkedin_cookies")
+}
+
