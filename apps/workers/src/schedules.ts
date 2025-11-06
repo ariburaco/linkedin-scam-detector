@@ -22,46 +22,40 @@ export interface ScheduleConfig {
  * Schedule Configurations
  */
 export const schedules: ScheduleConfig[] = [
+  // LinkedIn Job Scraping Schedules
   {
-    scheduleId: 'bulk-refresh-daily',
+    scheduleId: 'scrape-linkedin-jobs-daily',
     cronExpression: '0 2 * * *', // 2 AM daily
-    workflowType: 'bulkRefreshWorkflow',
-    workflowArgs: [{}], // All tracked products
-    description: 'Daily refresh of all tracked products',
-    paused: false,
-  },
-  {
-    scheduleId: 'bulk-refresh-high-priority',
-    cronExpression: '0 */6 * * *', // Every 6 hours
-    workflowType: 'bulkRefreshWorkflow',
+    workflowType: 'ScrapeLinkedInJobs',
     workflowArgs: [
       {
-        // productIds: ['high-priority-1', 'high-priority-2'], // TODO: Add high-priority product IDs
+        searchParams: {
+          keywords: 'software engineer',
+          location: 'United States',
+          maxResults: 100,
+        },
+        scrapeDetails: false,
       },
     ],
-    description: 'Frequent refresh for high-priority products',
-    paused: true, // Start paused until we define priority products
+    description: 'Daily LinkedIn job scraping for software engineers',
+    paused: true, // Start paused, enable when ready
   },
   {
-    scheduleId: 'bulk-refresh-hourly-testing',
+    scheduleId: 'scrape-linkedin-jobs-hourly',
     cronExpression: '0 * * * *', // Every hour
-    workflowType: 'bulkRefreshWorkflow',
+    workflowType: 'ScrapeLinkedInJobs',
     workflowArgs: [
       {
-        // productIds: ['test-1', 'test-2'], // TODO: Add test product IDs
+        searchParams: {
+          keywords: 'developer',
+          location: 'Remote',
+          maxResults: 50,
+        },
+        scrapeDetails: false,
       },
     ],
-    description: 'Hourly refresh for testing (can be paused)',
+    description: 'Hourly LinkedIn job scraping for remote developers',
     paused: true, // Start paused, enable for testing
-  },
-  // 10 seconds interval
-  {
-    scheduleId: 'bulk-refresh-1-seconds',
-    cronExpression: '*/1 * * * * *', // Every 10 seconds
-    workflowType: 'bulkRefreshWorkflow',
-    workflowArgs: [{}],
-    description: '1 seconds interval refresh',
-    paused: false, // Start paused, enable for testing
   },
 ];
 
@@ -150,9 +144,24 @@ export async function setupSchedules(): Promise<void> {
       namespace: env.TEMPORAL_NAMESPACE,
     });
 
+    // Parse Temporal address - Connection expects hostname:port, not URL
+    // Handle both formats: "http://localhost:7234" -> "localhost:7234" or "localhost:7234"
+    let temporalAddress = env.TEMPORAL_ADDRESS;
+    try {
+      const url = new URL(temporalAddress);
+      temporalAddress = `${url.hostname}:${url.port || '7233'}`;
+    } catch {
+      // Already in hostname:port format or invalid, use as-is
+    }
+
+    logger.info('Parsed Temporal address for schedule setup', {
+      original: env.TEMPORAL_ADDRESS,
+      parsed: temporalAddress,
+    });
+
     // Connect to Temporal
     const connection = await Connection.connect({
-      address: env.TEMPORAL_ADDRESS,
+      address: temporalAddress,
     });
 
     const client = new Client({
@@ -179,7 +188,24 @@ export async function setupSchedules(): Promise<void> {
     // Close connection
     await connection.close();
   } catch (error) {
-    logger.error('Failed to setup schedules', error as Error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    logger.error('Failed to setup schedules', {
+      message: errorMessage,
+      stack: errorStack,
+      temporalAddress: env.TEMPORAL_ADDRESS,
+      namespace: env.TEMPORAL_NAMESPACE,
+    });
+
+    // Also log to console for better visibility
+    console.error('\n=== Schedule Setup Error ===');
+    console.error('Message:', errorMessage);
+    console.error('Stack:', errorStack);
+    console.error('Temporal Address:', env.TEMPORAL_ADDRESS);
+    console.error('Namespace:', env.TEMPORAL_NAMESPACE);
+    console.error('============================\n');
+
     throw error;
   }
 }
@@ -189,8 +215,17 @@ export async function setupSchedules(): Promise<void> {
  */
 export async function listSchedules(): Promise<void> {
   try {
+    // Parse Temporal address
+    let temporalAddress = env.TEMPORAL_ADDRESS;
+    try {
+      const url = new URL(temporalAddress);
+      temporalAddress = `${url.hostname}:${url.port || '7233'}`;
+    } catch {
+      // Already in hostname:port format
+    }
+
     const connection = await Connection.connect({
-      address: env.TEMPORAL_ADDRESS,
+      address: temporalAddress,
     });
 
     const client = new Client({
@@ -224,8 +259,17 @@ export async function listSchedules(): Promise<void> {
  */
 export async function pauseSchedule(scheduleId: string): Promise<void> {
   try {
+    // Parse Temporal address
+    let temporalAddress = env.TEMPORAL_ADDRESS;
+    try {
+      const url = new URL(temporalAddress);
+      temporalAddress = `${url.hostname}:${url.port || '7233'}`;
+    } catch {
+      // Already in hostname:port format
+    }
+
     const connection = await Connection.connect({
-      address: env.TEMPORAL_ADDRESS,
+      address: temporalAddress,
     });
 
     const client = new Client({
@@ -256,8 +300,17 @@ export async function pauseSchedule(scheduleId: string): Promise<void> {
  */
 export async function unpauseSchedule(scheduleId: string): Promise<void> {
   try {
+    // Parse Temporal address
+    let temporalAddress = env.TEMPORAL_ADDRESS;
+    try {
+      const url = new URL(temporalAddress);
+      temporalAddress = `${url.hostname}:${url.port || '7233'}`;
+    } catch {
+      // Already in hostname:port format
+    }
+
     const connection = await Connection.connect({
-      address: env.TEMPORAL_ADDRESS,
+      address: temporalAddress,
     });
 
     const client = new Client({
@@ -288,8 +341,17 @@ export async function unpauseSchedule(scheduleId: string): Promise<void> {
  */
 export async function deleteSchedule(scheduleId: string): Promise<void> {
   try {
+    // Parse Temporal address
+    let temporalAddress = env.TEMPORAL_ADDRESS;
+    try {
+      const url = new URL(temporalAddress);
+      temporalAddress = `${url.hostname}:${url.port || '7233'}`;
+    } catch {
+      // Already in hostname:port format
+    }
+
     const connection = await Connection.connect({
-      address: env.TEMPORAL_ADDRESS,
+      address: temporalAddress,
     });
 
     const client = new Client({
@@ -381,6 +443,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         });
       break;
 
+    case 'cleanup':
+      cleanupOldSchedules()
+        .then(() => {
+          logger.info('Cleanup complete');
+          process.exit(0);
+        })
+        .catch((err) => {
+          logger.error('Cleanup failed', err);
+          process.exit(1);
+        });
+      break;
+
     default:
       console.log(`
 Usage:
@@ -389,7 +463,81 @@ Usage:
   bun run schedules.ts pause <scheduleId> - Pause a schedule
   bun run schedules.ts unpause <scheduleId> - Unpause a schedule
   bun run schedules.ts delete <scheduleId> - Delete a schedule
+  bun run schedules.ts cleanup            - Delete old/invalid schedules
       `);
       process.exit(1);
   }
+}
+
+/**
+ * Cleanup old/invalid schedules
+ * Deletes schedules that reference non-existent workflows
+ */
+async function cleanupOldSchedules(): Promise<void> {
+  const oldScheduleIds = [
+    'bulk-refresh-daily',
+    'bulk-refresh-high-priority',
+    'bulk-refresh-hourly-testing',
+    'bulk-refresh-1-seconds',
+  ];
+
+  logger.info('Starting cleanup of old schedules', {
+    scheduleIds: oldScheduleIds,
+  });
+
+  // Parse Temporal address
+  let temporalAddress = env.TEMPORAL_ADDRESS;
+  try {
+    const url = new URL(temporalAddress);
+    temporalAddress = `${url.hostname}:${url.port || '7233'}`;
+  } catch {
+    // Already in hostname:port format
+  }
+
+  const connection = await Connection.connect({
+    address: temporalAddress,
+  });
+
+  const client = new Client({
+    connection,
+    namespace: env.TEMPORAL_NAMESPACE,
+  });
+
+  let deleted = 0;
+  let notFound = 0;
+  let errors = 0;
+
+  for (const scheduleId of oldScheduleIds) {
+    try {
+      const handle = client.schedule.getHandle(scheduleId);
+      try {
+        await handle.describe();
+        // Schedule exists, delete it
+        await handle.delete();
+        logger.info('Deleted old schedule', { scheduleId });
+        deleted++;
+      } catch (error) {
+        // Schedule doesn't exist
+        logger.info('Schedule not found (may already be deleted)', {
+          scheduleId,
+        });
+        notFound++;
+      }
+    } catch (error) {
+      logger.error('Failed to delete schedule', {
+        scheduleId,
+        error: (error as Error).message,
+      });
+      errors++;
+    }
+  }
+
+  await connection.close();
+
+  logger.info('Cleanup completed', {
+    deleted,
+    notFound,
+    errors,
+    total: oldScheduleIds.length,
+  });
 }

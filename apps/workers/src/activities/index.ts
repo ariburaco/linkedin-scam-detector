@@ -6,3 +6,4 @@
 export * from './job-embedding.activity';
 export * from './job-extraction.activity';
 export * from './discovered-job.activity';
+export * from './linkedin-scraper.activity';

@@ -12,6 +12,7 @@
     "schedules:pause": "bun with-env tsx src/schedules.ts pause",
     "schedules:unpause": "bun with-env tsx src/schedules.ts unpause",
     "schedules:delete": "bun with-env tsx src/schedules.ts delete",
+    "schedules:cleanup": "bun with-env tsx src/schedules.ts cleanup",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -22,6 +23,7 @@
   "dependencies": {
     "@acme/api": "workspace:*",
     "@acme/db": "workspace:*",
+    "@acme/scraper": "workspace:*",
     "@acme/shared": "workspace:*",
     "@temporalio/activity": "catalog:",
     "@temporalio/client": "catalog:",

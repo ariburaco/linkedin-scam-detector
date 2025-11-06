@@ -61,6 +61,24 @@
     "db:seed": {
       "cache": false,
       "persistent": true
+    },
+    "schedules:setup": {
+      "cache": false
+    },
+    "schedules:list": {
+      "cache": false
+    },
+    "schedules:pause": {
+      "cache": false
+    },
+    "schedules:unpause": {
+      "cache": false
+    },
+    "schedules:delete": {
+      "cache": false
+    },
+    "schedules:cleanup": {
+      "cache": false
     }
   }
 }

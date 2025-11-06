@@ -37,6 +37,12 @@ export const env = createEnv({
     TEMPORAL_NAMESPACE: z.string().default("default"),
     TEMPORAL_TASK_QUEUE: z.string().default("linkedin-scam-detector-tasks"),
 
+    // Scraper
+    SCRAPER_HEADLESS: z.boolean().optional().default(true),
+    SCRAPER_TIMEOUT: z.number().optional().default(30000), // 30 seconds
+    SCRAPER_RATE_LIMIT_DELAY: z.number().optional().default(2000), // 2 seconds
+    BROWSERLESS_WS_URL: z.string().url().optional(), // Browserless WebSocket URL (e.g., ws://localhost:3000)
+
     // Node Environment
     NODE_ENV: z
       .enum(["development", "production", "test"])
