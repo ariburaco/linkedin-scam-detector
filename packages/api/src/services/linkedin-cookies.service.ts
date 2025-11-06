@@ -48,16 +48,24 @@ export class LinkedInCookiesService {
       });
 
       // Convert to Puppeteer format
-      const cookies: LinkedInCookie[] = validCookies.map((cookie) => ({
-        name: cookie.name,
-        value: cookie.value,
-        domain: cookie.domain,
-        path: cookie.path,
-        expires: cookie.expires ? Math.floor(cookie.expires.getTime() / 1000) : undefined,
-        httpOnly: cookie.httpOnly,
-        secure: cookie.secure,
-        sameSite: cookie.sameSite as "Strict" | "Lax" | "None" | undefined,
-      }));
+      const cookies: LinkedInCookie[] = validCookies.map((cookie) => {
+        const formatted: LinkedInCookie = {
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain,
+          path: cookie.path,
+          expires: cookie.expires ? Math.floor(cookie.expires.getTime() / 1000) : undefined,
+          httpOnly: cookie.httpOnly,
+          secure: cookie.secure,
+        };
+
+        // Only include sameSite if it's a valid string value (not null)
+        if (cookie.sameSite && ['Strict', 'Lax', 'None'].includes(cookie.sameSite)) {
+          formatted.sameSite = cookie.sameSite as "Strict" | "Lax" | "None";
+        }
+
+        return formatted;
+      });
 
       logger.info("Retrieved LinkedIn cookies", {
         total: dbCookies.length,

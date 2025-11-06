@@ -184,16 +184,40 @@ export class BrowserManager {
       try {
         const cookies = await this.cookieProvider();
         if (cookies.length > 0) {
+          // Format cookies for Puppeteer (ensure sameSite is valid)
+          const formattedCookies = cookies.map((cookie) => {
+            const formatted: any = {
+              name: cookie.name,
+              value: cookie.value,
+              domain: cookie.domain,
+              path: cookie.path || '/',
+              httpOnly: cookie.httpOnly ?? false,
+              secure: cookie.secure ?? true,
+            };
+
+            // Only include expires if present
+            if (cookie.expires) {
+              formatted.expires = cookie.expires;
+            }
+
+            // Only include sameSite if it's a valid string value (not null or undefined)
+            if (cookie.sameSite && ['Strict', 'Lax', 'None'].includes(cookie.sameSite)) {
+              formatted.sameSite = cookie.sameSite;
+            }
+
+            return formatted;
+          });
+
           // Get browser context (non-deprecated API)
           const context =
             browser.browserContexts()[0] || browser.defaultBrowserContext();
 
           // Set cookies in browser context (non-deprecated API)
-          await context.setCookie(...cookies);
+          await context.setCookie(...formattedCookies);
 
           logger.info('LinkedIn cookies injected', {
-            count: cookies.length,
-            domains: [...new Set(cookies.map((c) => c.domain))],
+            count: formattedCookies.length,
+            domains: [...new Set(formattedCookies.map((c) => c.domain))],
           });
         } else {
           logger.warn('No LinkedIn cookies available for injection');

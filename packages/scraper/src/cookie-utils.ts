@@ -272,18 +272,27 @@ export function validateCookies(cookies: LinkedInCookie[]): {
 
 /**
  * Format cookies for Puppeteer (ensure all required fields)
+ * Puppeteer requires sameSite to be a string ("Strict" | "Lax" | "None") or undefined, not null
  */
 export function formatCookiesForPuppeteer(
   cookies: LinkedInCookie[]
 ): LinkedInCookie[] {
-  return cookies.map((cookie) => ({
-    name: cookie.name,
-    value: cookie.value,
-    domain: cookie.domain,
-    path: cookie.path || '/',
-    expires: cookie.expires,
-    httpOnly: cookie.httpOnly ?? false,
-    secure: cookie.secure ?? true,
-    sameSite: cookie.sameSite,
-  }));
+  return cookies.map((cookie) => {
+    const formatted: LinkedInCookie = {
+      name: cookie.name,
+      value: cookie.value,
+      domain: cookie.domain,
+      path: cookie.path || '/',
+      expires: cookie.expires,
+      httpOnly: cookie.httpOnly ?? false,
+      secure: cookie.secure ?? true,
+    };
+
+    // Only include sameSite if it's a valid string value (not null or undefined)
+    if (cookie.sameSite && ['Strict', 'Lax', 'None'].includes(cookie.sameSite)) {
+      formatted.sameSite = cookie.sameSite;
+    }
+
+    return formatted;
+  });
 }
