@@ -19,6 +19,7 @@ const { getUnprocessedDiscoveredJobs, processDiscoveredJobToJob } =
 
 export interface ProcessDiscoveredJobsWorkflowInput {
   batchSize?: number;
+  limit?: number; // Maximum number of jobs to process (stops early if reached)
   priority?: boolean;
   triggerExtraction?: boolean;
   triggerEmbedding?: boolean;
@@ -48,11 +49,14 @@ export async function ProcessDiscoveredJobs(
 ): Promise<ProcessDiscoveredJobsWorkflowOutput> {
   const { workflowId } = workflowInfo();
   const batchSize = input.batchSize ?? 50;
+  const limit = input.limit; // Optional limit on how many to process
   const priority = input.priority ?? true;
 
   // Step 1: Get unprocessed discovered jobs
+  // If limit is specified, fetch at least that many (or batchSize, whichever is larger)
+  const fetchLimit = limit && limit > batchSize ? limit : batchSize;
   const { jobs, count } = await getUnprocessedDiscoveredJobs({
-    limit: batchSize,
+    limit: fetchLimit,
     priority,
   });
 
@@ -66,12 +70,14 @@ export async function ProcessDiscoveredJobs(
     };
   }
 
-  // Step 2: Process each job
+  // Step 2: Process each job (up to limit if specified)
   let processed = 0;
   let failed = 0;
   let skipped = 0;
+  const jobsToProcess = limit ? jobs.slice(0, limit) : jobs;
+  const totalToProcess = jobsToProcess.length;
 
-  for (const discoveredJob of jobs) {
+  for (const discoveredJob of jobsToProcess) {
     try {
       // Process discovered job to full job
       const result = await processDiscoveredJobToJob({
@@ -99,6 +105,6 @@ export async function ProcessDiscoveredJobs(
     processed,
     failed,
     skipped,
-    total: count,
+    total: totalToProcess, // Return the number we actually attempted to process
   };
 }

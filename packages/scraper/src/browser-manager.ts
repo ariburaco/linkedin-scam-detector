@@ -201,7 +201,10 @@ export class BrowserManager {
             }
 
             // Only include sameSite if it's a valid string value (not null or undefined)
-            if (cookie.sameSite && ['Strict', 'Lax', 'None'].includes(cookie.sameSite)) {
+            if (
+              cookie.sameSite &&
+              ['Strict', 'Lax', 'None'].includes(cookie.sameSite)
+            ) {
               formatted.sameSite = cookie.sameSite;
             }
 
@@ -233,6 +236,57 @@ export class BrowserManager {
     logger.debug('Page created with stealth configuration');
 
     return page;
+  }
+
+  /**
+   * Establish LinkedIn session by navigating to homepage
+   * This ensures cookies are properly set and session is active
+   */
+  async establishSession(page: Page): Promise<boolean> {
+    if (!this.cookieProvider) {
+      logger.debug('No cookie provider, skipping session establishment');
+      return false;
+    }
+
+    try {
+      logger.info('Establishing LinkedIn session...');
+
+      // Navigate to LinkedIn homepage
+      await page.goto('https://www.linkedin.com', {
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      });
+
+      // Wait a bit for page to fully load
+      const { sleep } = await import('./utils');
+      await sleep(2000);
+
+      // Check if session is established
+      const { verifySession } = await import('./utils');
+      const sessionEstablished = await verifySession(page);
+
+      if (sessionEstablished) {
+        logger.info('LinkedIn session established successfully');
+        return true;
+      } else {
+        // Check if login is required
+        const { requiresLogin } = await import('./utils');
+        const loginRequired = await requiresLogin(page);
+        if (loginRequired) {
+          logger.warn('LinkedIn session establishment failed - login required');
+        } else {
+          logger.warn(
+            'LinkedIn session establishment failed - unable to verify session'
+          );
+        }
+        return false;
+      }
+    } catch (error) {
+      logger.warn('Failed to establish LinkedIn session', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return false;
+    }
   }
 
   /**

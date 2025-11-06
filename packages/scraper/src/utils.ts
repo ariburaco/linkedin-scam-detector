@@ -202,6 +202,8 @@ export async function requiresLogin(page: Page): Promise<boolean> {
       'input[type="email"]',
       'a[href*="/login"]',
       '.authwall',
+      'div[data-test-id="sign-in-modal"]',
+      'div[class*="sign-in-modal"]',
     ];
 
     for (const selector of loginIndicators) {
@@ -220,6 +222,55 @@ export async function requiresLogin(page: Page): Promise<boolean> {
     // Check URL
     const url = page.url();
     if (url.includes('/login') || url.includes('/authwall')) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Verify if LinkedIn session is established
+ * Checks for indicators that user is logged in
+ */
+export async function verifySession(page: Page): Promise<boolean> {
+  try {
+    // Check for logged-in indicators
+    const loggedInIndicators = [
+      'nav[class*="global-nav"]', // Main navigation (only visible when logged in)
+      'div[data-test-id="nav-settings"]', // Settings menu
+      'button[aria-label*="profile"]', // Profile button
+      'div[class*="feed-identity-module"]', // Feed identity module
+    ];
+
+    for (const selector of loggedInIndicators) {
+      const element = await page.$(selector);
+      if (element) {
+        const isVisible = await page.evaluate((el) => {
+          const style = window.getComputedStyle(el);
+          return style.display !== 'none' && style.visibility !== 'hidden';
+        }, element);
+        if (isVisible) {
+          return true;
+        }
+      }
+    }
+
+    // Check if login is NOT required (negative check)
+    const loginRequired = await requiresLogin(page);
+    if (loginRequired) {
+      return false;
+    }
+
+    // Check URL - if we're on homepage or feed, likely logged in
+    const url = page.url();
+    if (
+      url === 'https://www.linkedin.com/' ||
+      url === 'https://www.linkedin.com/feed' ||
+      url.startsWith('https://www.linkedin.com/feed/')
+    ) {
       return true;
     }
 

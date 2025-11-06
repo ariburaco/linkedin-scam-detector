@@ -52,27 +52,61 @@ export class LinkedInScraper {
     try {
       // Build LinkedIn job search URL
       const searchUrl = this.buildSearchUrl(params);
-      logger.info('Scraping job search', { url: searchUrl, params });
+      logger.info('Scraping job search', {
+        url: searchUrl,
+        keywords: params.keywords,
+        location: params.location,
+      });
 
-      // Navigate to search page
+      // Check if we have cookies - if so, establish session first
+      const hasCookies =
+        (this.browserManager as any).cookieProvider !== undefined;
+
+      if (hasCookies) {
+        // Establish session on LinkedIn homepage first
+        const sessionEstablished =
+          await this.browserManager.establishSession(page);
+
+        if (!sessionEstablished) {
+          logger.warn(
+            'Failed to establish LinkedIn session - cookies may be expired or invalid'
+          );
+          // Try navigating to search URL anyway (might work)
+        }
+      }
+
+      // Navigate to search URL
       await page.goto(searchUrl, {
         waitUntil: 'networkidle2',
         timeout: this.config.pageTimeout,
       });
 
+      // Wait a bit for page to load
+      await sleep(1000);
+
       // Check for login requirement
       if (await requiresLogin(page)) {
-        // Check if we have cookies (might be expired)
-        const hasCookies = this.browserManager['cookieProvider'] !== undefined;
         if (hasCookies) {
+          // If we have cookies but still need login, cookies might be expired
+          // Try waiting a bit and retry once
           logger.warn(
-            'LinkedIn login required despite cookies - cookies may be expired or invalid'
+            'LinkedIn login required after session establishment - retrying...'
           );
-          return []; // Return empty results instead of throwing (graceful degradation)
+          await sleep(2000);
+          await page.reload({ waitUntil: 'networkidle2' });
+          await sleep(1000);
+
+          if (await requiresLogin(page)) {
+            logger.warn(
+              'LinkedIn login required after retry - cookies may be expired or invalid'
+            );
+            return []; // Return empty results instead of throwing (graceful degradation)
+          }
+        } else {
+          throw new Error(
+            'LinkedIn login required - no authentication cookies available'
+          );
         }
-        throw new Error(
-          'LinkedIn login required - no authentication cookies available'
-        );
       }
 
       // Check for rate limiting
@@ -131,26 +165,56 @@ export class LinkedInScraper {
       const url = params.url;
       logger.info('Scraping job details', { url });
 
+      // Check if we have cookies - if so, establish session first
+      const hasCookies =
+        (this.browserManager as any).cookieProvider !== undefined;
+
+      if (hasCookies) {
+        // Establish session on LinkedIn homepage first
+        const sessionEstablished =
+          await this.browserManager.establishSession(page);
+
+        if (!sessionEstablished) {
+          logger.warn(
+            'Failed to establish LinkedIn session - cookies may be expired or invalid'
+          );
+          // Try navigating to job URL anyway (might work)
+          // But if login is still required, return null
+        }
+      }
+
+      // Navigate to job URL
       await page.goto(url, {
         waitUntil: 'networkidle2',
         timeout: this.config.pageTimeout,
       });
 
+      // Wait a bit for page to load
+      await sleep(1000);
+
       // Check for login requirement
       if (await requiresLogin(page)) {
-        // Check if we have cookies (might be expired)
-        // Access cookieProvider via private property check
-        const hasCookies =
-          (this.browserManager as any).cookieProvider !== undefined;
         if (hasCookies) {
+          // If we have cookies but still need login, cookies might be expired
+          // Try waiting a bit and retry once
           logger.warn(
-            'LinkedIn login required despite cookies - cookies may be expired or invalid'
+            'LinkedIn login required after session establishment - retrying...'
           );
-          return null; // Return null instead of throwing (graceful degradation)
+          await sleep(2000);
+          await page.reload({ waitUntil: 'networkidle2' });
+          await sleep(1000);
+
+          if (await requiresLogin(page)) {
+            logger.warn(
+              'LinkedIn login required after retry - cookies may be expired or invalid'
+            );
+            return null; // Return null instead of throwing (graceful degradation)
+          }
+        } else {
+          throw new Error(
+            'LinkedIn login required - no authentication cookies available'
+          );
         }
-        throw new Error(
-          'LinkedIn login required - no authentication cookies available'
-        );
       }
 
       // Check for rate limiting

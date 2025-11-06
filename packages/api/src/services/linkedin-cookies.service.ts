@@ -67,11 +67,21 @@ export class LinkedInCookiesService {
         return formatted;
       });
 
+      // Check for critical cookies
+      const hasLiAt = cookies.some((c) => c.name === 'li_at');
+      const cookieNames = cookies.map((c) => c.name).join(', ');
+
       logger.info("Retrieved LinkedIn cookies", {
         total: dbCookies.length,
         valid: cookies.length,
         expired: dbCookies.length - cookies.length,
+        hasLiAt,
+        cookieNames: cookieNames.substring(0, 200), // Limit log size
       });
+
+      if (!hasLiAt) {
+        logger.warn("Missing critical cookie: li_at (LinkedIn authentication token)");
+      }
 
       return cookies;
     } catch (error) {

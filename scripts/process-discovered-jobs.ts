@@ -100,6 +100,7 @@ async function processDiscoveredJobs(
   const workflowId = `process-discovered-jobs-manual-${Date.now()}`;
   const workflowInput: ProcessDiscoveredJobsWorkflowInput = {
     batchSize: input.batchSize ?? 50,
+    limit: input.limit,
     priority: input.priority ?? true,
     triggerExtraction: input.triggerExtraction ?? false,
     triggerEmbedding: input.triggerEmbedding ?? false,
@@ -108,6 +109,11 @@ async function processDiscoveredJobs(
   console.log('🚀 Starting ProcessDiscoveredJobs workflow...');
   console.log(`   Workflow ID: ${workflowId}`);
   console.log(`   Batch Size: ${workflowInput.batchSize}`);
+  if (workflowInput.limit) {
+    console.log(
+      `   Limit: ${workflowInput.limit} (will process up to this many)`
+    );
+  }
   console.log(`   Priority: ${workflowInput.priority}`);
   console.log(`   Trigger Extraction: ${workflowInput.triggerExtraction}`);
   console.log(`   Trigger Embedding: ${workflowInput.triggerEmbedding}\n`);
@@ -192,6 +198,23 @@ async function main() {
         }
         break;
 
+      case '--limit':
+      case '-l':
+        if (nextArg && !nextArg.startsWith('--')) {
+          input.limit = parseInt(nextArg, 10);
+          if (isNaN(input.limit) || input.limit < 1) {
+            console.error(
+              `❌ Invalid limit: ${nextArg} (must be a positive number)`
+            );
+            process.exit(1);
+          }
+          i++;
+        } else {
+          console.error('❌ --limit requires a number');
+          process.exit(1);
+        }
+        break;
+
       case '--no-priority':
         input.priority = false;
         break;
@@ -216,7 +239,8 @@ Usage: bun scripts/process-discovered-jobs.ts [options]
 Options:
   --schedule, -s <type>        Trigger a schedule instead of workflow
                                Options: hourly, daily
-  --batch-size, -b <number>    Number of jobs to process (default: 50)
+  --batch-size, -b <number>    Number of jobs to fetch from database (default: 50)
+  --limit, -l <number>         Maximum number of jobs to process (stops early)
   --priority                    Process jobs by priority score (default: true)
   --no-priority                 Process jobs in discovery order
   --trigger-extraction          Trigger extraction workflow after processing
@@ -232,6 +256,12 @@ Examples:
 
   # Process 50 jobs with priority (workflow)
   bun scripts/process-discovered-jobs.ts
+
+  # Process only 10 jobs (limit)
+  bun scripts/process-discovered-jobs.ts --limit 10
+
+  # Fetch 100 jobs but only process 25
+  bun scripts/process-discovered-jobs.ts --batch-size 100 --limit 25
 
   # Process 100 jobs without priority (workflow)
   bun scripts/process-discovered-jobs.ts --batch-size 100 --no-priority
