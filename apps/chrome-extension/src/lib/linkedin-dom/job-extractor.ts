@@ -28,9 +28,13 @@ function extractLinkedInJobId(url: string): string | undefined {
 /**
  * Extract employment type from job insights
  */
-function extractEmploymentType(container: HTMLElement | Document): string | undefined {
+function extractEmploymentType(
+  container: HTMLElement | Document
+): string | undefined {
   // Look for job insights that might contain employment type
-  const insights = container.querySelectorAll(".job-details-jobs-unified-top-card__job-insight");
+  const insights = container.querySelectorAll(
+    ".job-details-jobs-unified-top-card__job-insight"
+  );
   for (const insight of insights) {
     const text = insight.textContent?.trim().toLowerCase() || "";
     if (text.includes("full-time") || text.includes("full time")) {
@@ -55,13 +59,20 @@ function extractEmploymentType(container: HTMLElement | Document): string | unde
 /**
  * Extract posted date if available
  */
-function extractPostedDate(container: HTMLElement | Document): string | undefined {
+function extractPostedDate(
+  container: HTMLElement | Document
+): string | undefined {
   // Look for "Posted X days ago" or similar patterns
-  const insightElements = container.querySelectorAll(".job-details-jobs-unified-top-card__job-insight, .jobs-unified-top-card__primary-description-without-tagline");
+  const insightElements = container.querySelectorAll(
+    ".job-details-jobs-unified-top-card__job-insight, .jobs-unified-top-card__primary-description-without-tagline"
+  );
   for (const element of insightElements) {
     const text = element.textContent?.trim() || "";
     // Match patterns like "Posted 2 days ago", "2 days ago", etc.
-    if (text.toLowerCase().includes("posted") || text.match(/\d+\s+(day|days|week|weeks|month|months)\s+ago/i)) {
+    if (
+      text.toLowerCase().includes("posted") ||
+      text.match(/\d+\s+(day|days|week|weeks|month|months)\s+ago/i)
+    ) {
       return text;
     }
   }

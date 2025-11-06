@@ -14,6 +14,7 @@ model Job {
   updatedAt      DateTime  @updatedAt
   scrapedBy      String? // User ID who scraped this job (nullable for anonymous scrapes)
   rawData        Json? // Store any additional scraped data not in structured fields
+  embedding      Unsupported("vector(768)")? // Vector embedding for semantic search (Gemini embedding-004)
 
   // Relations
   analyses    JobAnalysis[]
@@ -74,6 +75,9 @@ model JobExtraction {
 
   // Full extraction result (for flexibility)
   extractedData Json? // Complete extraction result with all parsed information
+
+  // Structured embedding for precise skill matching
+  structuredEmbedding Unsupported("vector(768)")? // Vector embedding from structured data
 
   // Metadata
   extractedAt      DateTime @default(now())

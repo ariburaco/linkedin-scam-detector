@@ -3,8 +3,10 @@ import { createHash } from "crypto";
 import prisma from "@acme/db";
 import { z } from "zod";
 
-import { publicProcedure, protectedProcedure, router } from "../index";
+import { publicProcedure, router } from "../index";
 import { aiService } from "../services/ai-service";
+import { batchEmbeddingService } from "../services/batch-embedding-service";
+import { embeddingService } from "../services/embedding-service";
 
 import { scanJobCacheMiddleware } from "./middlewares/trpc-cache";
 
@@ -74,35 +76,84 @@ export const scamDetectorRouter = router({
             where: { jobUrlHash },
           });
 
+      // Generate embedding for the job (async, don't block)
+      let embeddingPromise: Promise<number[]> | null = null;
+      try {
+        embeddingPromise = embeddingService.embedJob({
+          title: jobData.title,
+          company: jobData.company,
+          description: jobData.description,
+        });
+      } catch (error) {
+        console.error("[saveJob] Failed to generate embedding:", error);
+        // Continue without embedding - it's optional
+      }
+
       let job;
       if (existingJob) {
         // Update existing job
+        const updateData = {
+          ...jobData,
+          linkedinJobId: linkedinJobId || existingJob.linkedinJobId,
+          jobUrlHash,
+          postedAt,
+          updatedAt: new Date(),
+          rawData:
+            input.rawData || (existingJob.rawData as Record<string, unknown>),
+          scrapedBy: scrapedBy || existingJob.scrapedBy,
+        };
+
+        // If embedding was generated, add it (using raw SQL since Prisma doesn't support vector type directly)
+        if (embeddingPromise) {
+          try {
+            const embedding = await embeddingPromise;
+            // Format embedding as PostgreSQL vector: '[1,2,3,...]'
+            const vectorString = `[${embedding.join(",")}]`;
+            // Update embedding using raw SQL
+            await prisma.$executeRawUnsafe(
+              `UPDATE scam_detector_job SET embedding = $1::vector WHERE id = $2`,
+              vectorString,
+              existingJob.id
+            );
+          } catch (error) {
+            console.error("[saveJob] Failed to update embedding:", error);
+          }
+        }
+
         job = await prisma.job.update({
           where: { id: existingJob.id },
-          data: {
-            ...jobData,
-            linkedinJobId: linkedinJobId || existingJob.linkedinJobId,
-            jobUrlHash,
-            postedAt,
-            updatedAt: new Date(),
-            rawData:
-              input.rawData || (existingJob.rawData as Record<string, any>),
-            scrapedBy: scrapedBy || existingJob.scrapedBy,
-          },
+          data: updateData,
         });
       } else {
         // Create new job
+        const createData = {
+          linkedinJobId: linkedinJobId || null,
+          jobUrlHash,
+          url,
+          ...jobData,
+          postedAt,
+          scrapedBy,
+          rawData: input.rawData || undefined,
+        };
+
         job = await prisma.job.create({
-          data: {
-            linkedinJobId: linkedinJobId || null,
-            jobUrlHash,
-            url,
-            ...jobData,
-            postedAt,
-            scrapedBy,
-            rawData: input.rawData || undefined,
-          },
+          data: createData,
         });
+
+        // If embedding was generated, add it using raw SQL
+        if (embeddingPromise) {
+          try {
+            const embedding = await embeddingPromise;
+            const vectorString = `[${embedding.join(",")}]`;
+            await prisma.$executeRawUnsafe(
+              `UPDATE scam_detector_job SET embedding = $1::vector WHERE id = $2`,
+              vectorString,
+              job.id
+            );
+          } catch (error) {
+            console.error("[saveJob] Failed to set embedding:", error);
+          }
+        }
       }
 
       return { jobId: job.id, success: true };
@@ -145,6 +196,19 @@ export const scamDetectorRouter = router({
         );
       }
 
+      // Generate structured embedding for the extracted data
+      let structuredEmbeddingPromise: Promise<number[]> | null = null;
+      try {
+        structuredEmbeddingPromise =
+          embeddingService.embedStructuredData(extractionResult);
+      } catch (error) {
+        console.error(
+          "[extractJobData] Failed to generate structured embedding:",
+          error
+        );
+        // Continue without embedding - it's optional
+      }
+
       // Save extraction to database
       const extraction = await prisma.jobExtraction.create({
         data: {
@@ -156,7 +220,97 @@ export const scamDetectorRouter = router({
         },
       });
 
+      // If structured embedding was generated, add it using raw SQL
+      if (structuredEmbeddingPromise) {
+        try {
+          const embedding = await structuredEmbeddingPromise;
+          const vectorString = `[${embedding.join(",")}]`;
+          await prisma.$executeRawUnsafe(
+            `UPDATE scam_detector_job_extraction SET structured_embedding = $1::vector WHERE id = $2`,
+            vectorString,
+            extraction.id
+          );
+        } catch (error) {
+          console.error(
+            "[extractJobData] Failed to set structured embedding:",
+            error
+          );
+        }
+      }
+
       return { extractionId: extraction.id, ...extractionResult };
+    }),
+
+  // Search jobs using semantic similarity
+  searchJobs: publicProcedure
+    .input(
+      z.object({
+        query: z.string().min(1),
+        limit: z.number().min(1).max(100).default(10),
+      })
+    )
+    .query(async ({ input }) => {
+      const { query, limit } = input;
+
+      // Generate embedding for the search query
+      let queryEmbedding: number[];
+      try {
+        queryEmbedding = await embeddingService.embedText({ text: query });
+      } catch (error) {
+        console.error(
+          "[searchJobs] Failed to generate query embedding:",
+          error
+        );
+        throw new Error(
+          "Failed to process search query. Please try again later."
+        );
+      }
+
+      // Format embedding as PostgreSQL vector
+      const vectorString = `[${queryEmbedding.join(",")}]`;
+
+      // Perform cosine similarity search using raw SQL
+      // Cosine distance (<->) returns smaller values for more similar vectors
+      const results = await prisma.$queryRaw<
+        Array<{
+          id: string;
+          title: string;
+          company: string;
+          description: string;
+          url: string;
+          location: string | null;
+          salary: string | null;
+          similarity: number;
+        }>
+      >`
+        SELECT 
+          id,
+          title,
+          company,
+          description,
+          url,
+          location,
+          salary,
+          1 - (embedding <-> ${vectorString}::vector) AS similarity
+        FROM scam_detector_job
+        WHERE embedding IS NOT NULL
+        ORDER BY embedding <-> ${vectorString}::vector
+        LIMIT ${limit}
+      `;
+
+      return {
+        results: results.map((r) => ({
+          id: r.id,
+          title: r.title,
+          company: r.company,
+          description: r.description,
+          url: r.url,
+          location: r.location,
+          salary: r.salary,
+          similarity: Number(r.similarity), // Convert to number (0-1, higher = more similar)
+        })),
+        count: results.length,
+      };
     }),
 
   // Scan a job posting
@@ -292,5 +446,40 @@ export const scamDetectorRouter = router({
       });
 
       return { success: true };
+    }),
+
+  // Generate embeddings for jobs without them (batch operation)
+  generateMissingEmbeddings: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(1000).optional().default(100),
+        offset: z.number().min(0).optional().default(0),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const result = await batchEmbeddingService.generateMissingEmbeddings({
+        limit: input.limit,
+        offset: input.offset,
+      });
+
+      return result;
+    }),
+
+  // Generate structured embeddings for extractions without them (batch operation)
+  generateMissingStructuredEmbeddings: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(1000).optional().default(100),
+        offset: z.number().min(0).optional().default(0),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const result =
+        await batchEmbeddingService.generateMissingStructuredEmbeddings({
+          limit: input.limit,
+          offset: input.offset,
+        });
+
+      return result;
     }),
 });

@@ -24,6 +24,7 @@
     "@acme/auth": "workspace:*",
     "@acme/db": "workspace:*",
     "@ai-sdk/google": "^2.0.28",
+    "@google/generative-ai": "^0.24.1",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "ai": "^5.0.87",

@@ -60,4 +60,3 @@ Be thorough and extract all available information. If information is not availab
 Focus on extracting concrete, structured data that would be useful for job search filters and matching algorithms.
 `;
 }
-
