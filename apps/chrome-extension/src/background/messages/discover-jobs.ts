@@ -6,11 +6,9 @@ import { FEATURE_FLAG_KEYS } from "@acme/shared";
 import type { PlasmoMessaging } from "@plasmohq/messaging";
 
 import type { DiscoveredJobData } from "../../lib/linkedin-dom/types";
-import {
-  getFeatureFlagOverrides,
-  mergeFeatureFlags,
-} from "../../lib/storage/feature-flags-storage";
-import { callerApi } from "../../trpc/caller";
+import { getCachedFeatureFlags } from "../../lib/storage/feature-flags-cache";
+
+import { callerApi } from "@/trpc/caller";
 
 export interface DiscoverJobsRequestBody {
   jobs: DiscoveredJobData[];
@@ -28,12 +26,9 @@ const handler: PlasmoMessaging.MessageHandler<
   DiscoverJobsResponseBody
 > = async (req, res) => {
   try {
-    // Check if job discovery feature is enabled (with local overrides)
-    const serverFlags = await callerApi.featureFlags.getAll.query();
-    const localOverrides = await getFeatureFlagOverrides();
-    const mergedFlags = mergeFeatureFlags(serverFlags, localOverrides);
-    const discoveryEnabled =
-      mergedFlags[FEATURE_FLAG_KEYS.JOB_DISCOVERY] ?? true;
+    // Check if job discovery feature is enabled (using cached flags)
+    const flags = await getCachedFeatureFlags();
+    const discoveryEnabled = flags[FEATURE_FLAG_KEYS.JOB_DISCOVERY] ?? true;
 
     if (!discoveryEnabled) {
       // Silently return success - feature is disabled

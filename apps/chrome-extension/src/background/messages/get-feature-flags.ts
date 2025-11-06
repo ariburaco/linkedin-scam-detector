@@ -5,11 +5,7 @@
 
 import type { PlasmoMessaging } from "@plasmohq/messaging";
 
-import {
-  getFeatureFlagOverrides,
-  mergeFeatureFlags,
-} from "../../lib/storage/feature-flags-storage";
-import { callerApi } from "../../trpc/caller";
+import { getCachedFeatureFlags } from "../../lib/storage/feature-flags-cache";
 
 export interface GetFeatureFlagsRequestBody {
   // Empty - no input needed
@@ -32,16 +28,9 @@ const handler: PlasmoMessaging.MessageHandler<
   GetFeatureFlagsResponseBody
 > = async (req, res) => {
   try {
-    // Get server flags
-    const serverFlags = await callerApi.featureFlags.getAll.query();
-
-    // Get local overrides
-    const localOverrides = await getFeatureFlagOverrides();
-
-    // Merge flags (local overrides take precedence)
-    const mergedFlags = mergeFeatureFlags(serverFlags, localOverrides);
-
-    res.send({ flags: mergedFlags });
+    // Get cached flags (with local overrides already merged)
+    const flags = await getCachedFeatureFlags();
+    res.send({ flags });
   } catch (error) {
     console.error("[Background] Failed to get feature flags:", error);
     // Return null on error - fail open (assume features enabled)

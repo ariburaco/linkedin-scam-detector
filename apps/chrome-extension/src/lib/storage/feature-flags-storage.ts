@@ -77,11 +77,11 @@ export async function clearFeatureFlagOverrides(): Promise<void> {
  * Local overrides take precedence
  */
 export function mergeFeatureFlags(
-  serverFlags: FeatureFlags,
+  serverFlags: FeatureFlags | null,
   localOverrides: Partial<FeatureFlags> | null
 ): FeatureFlags {
-  if (!localOverrides) {
-    return serverFlags;
+  if (!localOverrides || !serverFlags) {
+    return serverFlags ?? ({} as FeatureFlags);
   }
 
   return {

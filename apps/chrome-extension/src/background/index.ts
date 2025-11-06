@@ -6,11 +6,7 @@
 import { FEATURE_FLAG_KEYS } from "@acme/shared";
 import { Storage } from "@plasmohq/storage";
 
-import {
-  getFeatureFlagOverrides,
-  mergeFeatureFlags,
-} from "../lib/storage/feature-flags-storage";
-import { callerApi } from "../trpc/caller";
+import { getCachedFeatureFlags } from "../lib/storage/feature-flags-cache";
 
 import { extensionLoggerBackground } from "@/shared/loggers";
 import {
@@ -25,25 +21,10 @@ export const storage = new Storage();
 extensionLoggerBackground.info("Background service worker starting");
 
 /**
- * Get merged feature flags (server + local overrides)
+ * Get cached feature flags (uses cache with TTL)
  */
 const getFeatureFlags = async () => {
-  try {
-    const serverFlags = await callerApi.featureFlags.getAll.query();
-    const localOverrides = await getFeatureFlagOverrides();
-    return mergeFeatureFlags(serverFlags, localOverrides);
-  } catch (error) {
-    extensionLoggerBackground.warn(
-      "Failed to fetch feature flags, using defaults:",
-      error
-    );
-    // Fail open - return defaults (all enabled)
-    return {
-      [FEATURE_FLAG_KEYS.JOB_EXTRACTION]: true,
-      [FEATURE_FLAG_KEYS.JOB_EMBEDDINGS]: true,
-      [FEATURE_FLAG_KEYS.JOB_DISCOVERY]: true,
-    };
-  }
+  return await getCachedFeatureFlags();
 };
 
 // Initialize session manager - this starts cookie monitoring and loads initial session
