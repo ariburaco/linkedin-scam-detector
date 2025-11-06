@@ -133,18 +133,8 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
     }
   }
 
-  // Debug logging (only in development)
-  if (process.env.NODE_ENV === "development") {
-    if (anchor) {
-      console.log("[LinkedIn Job Badge] Found buttons container:", anchor);
-      console.log("[LinkedIn Job Badge] Container classes:", anchor.className);
-      console.log("[LinkedIn Job Badge] Insert position:", insertPosition);
-    } else {
-      console.warn(
-        "[LinkedIn Job Badge] Buttons container not found - badge will be hidden"
-      );
-    }
-  }
+  // Debug logging removed to prevent excessive console output
+  // The function is called multiple times by Plasmo on dynamic pages
 
   // Only return anchor if buttons container found
   // If not found, return a hidden element to prevent badge from appearing

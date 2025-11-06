@@ -3,8 +3,18 @@
  * Discovers job cards and sends them to background for storage
  */
 
-import { extractJobCardsFromList } from "../lib/linkedin-dom/job-extractor";
 import { sendToBackground } from "@plasmohq/messaging";
+import type { PlasmoCSConfig } from "plasmo";
+
+import { extractJobCardsFromList } from "../lib/linkedin-dom/job-extractor";
+
+export const config: PlasmoCSConfig = {
+  matches: [
+    "https://www.linkedin.com/jobs/search/*",
+    "https://www.linkedin.com/jobs/collections/*",
+  ],
+  run_at: "document_end",
+};
 
 // Debounce function to avoid excessive API calls
 function debounce<T extends (...args: any[]) => void>(
@@ -32,10 +42,10 @@ async function discoverAndSendJobs() {
     // Find the job list container
     // Try multiple selectors as LinkedIn may change them
     const jobListSelectors = [
-      'ul.jalfrDfgHGsKmZcPRnpnqhARxalryxRlmo', // From your HTML
+      "ul.jalfrDfgHGsKmZcPRnpnqhARxalryxRlmo", // From your HTML
       'ul[class*="job-card-list"]',
       'ul[class*="jobs-search-results"]',
-      'ul.scaffold-layout__list',
+      "ul.scaffold-layout__list",
     ];
 
     let jobListContainer: HTMLElement | null = null;
@@ -45,7 +55,7 @@ async function discoverAndSendJobs() {
     }
 
     if (!jobListContainer) {
-      console.log("[LinkedIn Search Badge] Job list container not found");
+      // Silently return - container may not exist on all pages
       return;
     }
 
@@ -53,13 +63,14 @@ async function discoverAndSendJobs() {
     const jobCards = extractJobCardsFromList(jobListContainer);
 
     if (jobCards.length === 0) {
-      console.log("[LinkedIn Search Badge] No job cards found");
+      // Silently return - no jobs to process
       return;
     }
 
-    console.log(
-      `[LinkedIn Search Badge] Discovered ${jobCards.length} jobs`
-    );
+    // Only log when jobs are actually discovered (less verbose)
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[LinkedIn Search Badge] Discovered ${jobCards.length} jobs`);
+    }
 
     // Send to background script
     const result = await sendToBackground({
@@ -89,7 +100,7 @@ const debouncedDiscover = debounce(discoverAndSendJobs, 2000);
 function observeJobList() {
   // Find job list container
   const jobListSelectors = [
-    'ul.jalfrDfgHGsKmZcPRnpnqhARxalryxRlmo',
+    "ul.jalfrDfgHGsKmZcPRnpnqhARxalryxRlmo",
     'ul[class*="job-card-list"]',
     'ul[class*="jobs-search-results"]',
   ];
@@ -119,7 +130,7 @@ function observeJobList() {
     subtree: true,
   });
 
-  console.log("[LinkedIn Search Badge] Observing job list for changes");
+  // Logging removed to reduce console noise
 }
 
 // Initialize when page loads
@@ -143,3 +154,10 @@ new MutationObserver(() => {
   subtree: true,
 });
 
+/**
+ * Default export required by Plasmo for content scripts
+ * Returns null since this script only runs side effects (job discovery)
+ */
+export default function LinkedInSearchBadge() {
+  return null;
+}

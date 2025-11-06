@@ -92,12 +92,8 @@ export function JobRiskBadge({
 
       // Only reset if job ID changed
       if (newJobId !== lastJobIdRef.current) {
-        console.log(
-          "[JobRiskBadge] Job changed detected:",
-          lastJobIdRef.current,
-          "->",
-          newJobId
-        );
+        // Debug logging removed to prevent excessive console output
+        // MutationObserver triggers frequently on dynamic pages
 
         // Reset state - set loading FIRST to show spinner immediately
         setRiskLevel("loading");
