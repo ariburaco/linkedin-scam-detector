@@ -8,6 +8,8 @@ import type { PlasmoCSConfig } from "plasmo";
 
 import { extractJobCardsFromList } from "../lib/linkedin-dom/job-extractor";
 
+import { extensionLoggerContent } from "@/shared/loggers";
+
 export const config: PlasmoCSConfig = {
   matches: [
     "https://www.linkedin.com/jobs/search/*",
@@ -67,27 +69,19 @@ async function discoverAndSendJobs() {
       return;
     }
 
-    // Only log when jobs are actually discovered (less verbose)
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[LinkedIn Search Badge] Discovered ${jobCards.length} jobs`);
-    }
-
     // Send to background script
-    const result = await sendToBackground({
+    await sendToBackground({
       name: "discover-jobs",
       body: {
         type: "discover-jobs",
         jobs: jobCards,
       },
     });
-
-    if (result?.success) {
-      console.log(
-        `[LinkedIn Search Badge] Successfully stored ${result.created || 0} new jobs, updated ${result.updated || 0}`
-      );
-    }
   } catch (error) {
-    console.error("[LinkedIn Search Badge] Error discovering jobs:", error);
+    extensionLoggerContent.error(
+      "[LinkedIn Search Badge] Error discovering jobs:",
+      error
+    );
   }
 }
 

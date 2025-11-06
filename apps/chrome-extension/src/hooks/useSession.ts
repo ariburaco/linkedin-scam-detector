@@ -7,6 +7,7 @@ import type {
   SessionRequestBody,
   SessionResponseBody,
 } from "@/background/messages/session";
+import { extensionLoggerContent } from "@/shared/loggers";
 import { STORAGE_KEYS } from "@/shared/sessionManager";
 
 /**
@@ -28,7 +29,7 @@ export function useSession(autoRefresh = false) {
     setIsLoading(true);
     setError(null);
     try {
-      console.log("Requesting session from background...");
+      extensionLoggerContent.info("Requesting session from background...");
       const response = await sendToBackground<
         SessionRequestBody,
         SessionResponseBody
@@ -43,12 +44,17 @@ export function useSession(autoRefresh = false) {
         // Explicitly update the session in storage to ensure it's synced
         setStoredSession(response.session);
       } else {
-        console.log("No active session returned from background");
+        extensionLoggerContent.info(
+          "No active session returned from background"
+        );
         // Ensure session is null if none returned
         setStoredSession(null);
       }
     } catch (error) {
-      console.error("Error communicating with background:", error);
+      extensionLoggerContent.error(
+        "Error communicating with background:",
+        error
+      );
       setError(error.message);
     } finally {
       setIsLoading(false);
@@ -78,7 +84,7 @@ export function useSession(autoRefresh = false) {
         setStoredSession(null);
       }
     } catch (error) {
-      console.error("Error refreshing session:", error);
+      extensionLoggerContent.error("Error refreshing session:", error);
       setError(error.message);
     } finally {
       setIsLoading(false);
@@ -104,10 +110,10 @@ export function useSession(autoRefresh = false) {
         // Explicitly clear the session in storage
         setStoredSession(null);
       } else {
-        console.error("Error signing out:", response.error);
+        extensionLoggerContent.error("Error signing out:", response.error);
       }
     } catch (error) {
-      console.error("Error signing out:", error);
+      extensionLoggerContent.error("Error signing out:", error);
       setError(error.message);
     } finally {
       setIsLoading(false);
@@ -134,7 +140,7 @@ export function useSession(autoRefresh = false) {
         setError(response.error);
       }
     } catch (error) {
-      console.error("Error signing in with email:", error);
+      extensionLoggerContent.error("Error signing in with email:", error);
       setError(error.message);
     } finally {
       setIsLoading(false);
@@ -159,7 +165,7 @@ export function useSession(autoRefresh = false) {
         setError(response.error);
       }
     } catch (error) {
-      console.error("Error signing in anonymously:", error);
+      extensionLoggerContent.error("Error signing in anonymously:", error);
       setError(error.message);
     } finally {
       setIsLoading(false);

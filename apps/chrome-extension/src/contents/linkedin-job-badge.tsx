@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { JobRiskBadge } from "@/components/job-risk-badge";
 import { RiskReportManager } from "@/components/risk-report-manager";
 import { waitForElement } from "@/lib/linkedin-dom/wait-for-element";
+import { extensionLoggerContent } from "@/shared/loggers";
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.linkedin.com/jobs/*"],
@@ -64,7 +65,7 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
     cachedAnchor.isConnected &&
     now - anchorCacheTime < ANCHOR_CACHE_DURATION
   ) {
-    console.log("[LinkedIn Job Badge] Using cached anchor");
+    extensionLoggerContent.info("[LinkedIn Job Badge] Using cached anchor");
     return {
       element: cachedAnchor,
       insertPosition: "beforeend",
@@ -370,7 +371,7 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
 
   // Debug logging - always log to help diagnose mounting issues
   if (anchor) {
-    console.log("[LinkedIn Job Badge] Found anchor:", {
+    extensionLoggerContent.info("[LinkedIn Job Badge] Found anchor:", {
       tagName: anchor.tagName,
       className: anchor.className,
       hasApply: !!anchor.querySelector(".jobs-s-apply, .jobs-apply-button"),
@@ -380,11 +381,13 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
       nextSibling: anchor.nextSibling?.nodeName,
       isConnected: anchor.isConnected,
     });
-    console.log(
+    extensionLoggerContent.info(
       "[LinkedIn Job Badge] About to return anchor for Plasmo mounting"
     );
   } else {
-    console.warn("[LinkedIn Job Badge] Anchor not found after waiting");
+    extensionLoggerContent.info(
+      "[LinkedIn Job Badge] Anchor not found after waiting"
+    );
   }
 
   // Only return anchor if buttons container found
@@ -407,7 +410,9 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
   if (anchor) {
     cachedAnchor = anchor;
     anchorCacheTime = Date.now();
-    console.log("[LinkedIn Job Badge] Cached anchor for stable reference");
+    extensionLoggerContent.info(
+      "[LinkedIn Job Badge] Cached anchor for stable reference"
+    );
   }
 
   const result = {
@@ -415,12 +420,15 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
     insertPosition,
   };
 
-  console.log("[LinkedIn Job Badge] Returning anchor result to Plasmo:", {
-    element: anchor?.tagName,
-    className: anchor?.className,
-    insertPosition: result.insertPosition,
-    isCached: anchor === cachedAnchor,
-  });
+  extensionLoggerContent.info(
+    "[LinkedIn Job Badge] Returning anchor result to Plasmo:",
+    {
+      element: anchor?.tagName,
+      className: anchor?.className,
+      insertPosition: result.insertPosition,
+      isCached: anchor === cachedAnchor,
+    }
+  );
 
   return result;
 };
@@ -432,18 +440,22 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
  */
 export default function LinkedInJobBadge() {
   // Debug logging to verify component is mounting
-  console.log("[LinkedIn Job Badge] Component rendering/mounting");
+  extensionLoggerContent.info(
+    "[LinkedIn Job Badge] Component rendering/mounting"
+  );
 
   // Use useEffect to verify component actually mounted
   useEffect(() => {
-    console.log("[LinkedIn Job Badge] Component MOUNTED successfully!");
-    console.log(
+    extensionLoggerContent.info(
+      "[LinkedIn Job Badge] Component MOUNTED successfully!"
+    );
+    extensionLoggerContent.info(
       "[LinkedIn Job Badge] Component is in DOM:",
       document.body.contains(document.querySelector('[class*="ml-2"]'))
     );
 
     return () => {
-      console.log("[LinkedIn Job Badge] Component UNMOUNTING");
+      extensionLoggerContent.info("[LinkedIn Job Badge] Component UNMOUNTING");
     };
   }, []);
 

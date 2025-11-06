@@ -480,42 +480,65 @@ function extractCompanyInfo(document: Document): CompanyData | null {
 
 /**
  * Extract hiring team contacts from job details page
- * Now waits for content to load (not skeleton/loader)
+ * Only waits for content to load on job detail pages (/jobs/view/)
+ * For other pages, uses immediate lookup for better performance
  */
 async function extractHiringTeam(document: Document): Promise<ContactData[]> {
   const contacts: ContactData[] = [];
 
   try {
-    // First wait for the hiring team section to appear (not skeleton)
-    const foundSection = await waitForElement(
-      [
+    // Only wait for dynamically loaded content on job detail pages (/jobs/view/)
+    // For other pages (search results), use immediate lookup for better performance
+    const isJobDetailPage = window.location.pathname.includes("/jobs/view/");
+    let foundSection: Element | null = null;
+
+    if (isJobDetailPage) {
+      // Wait for the hiring team section to appear (not skeleton)
+      foundSection = await waitForElement(
+        [
+          ".job-details-people-who-can-help__section--two-pane",
+          ".job-details-people-who-can-help__section--single-pane",
+          ".job-details-people-who-can-help__section",
+          '[class*="people-who-can-help"]',
+        ],
+        document,
+        {
+          maxRetries: 15,
+          initialDelay: 300,
+          retryDelay: 500,
+          minContentLength: 0,
+          validator: (el) => {
+            // Skip if it's a loader
+            if (el.querySelector(".artdeco-loader") !== null) {
+              return false;
+            }
+            // Check if it has actual contact cards
+            const hasContacts =
+              el.querySelector(".hirer-card__hirer-information") !== null ||
+              el.querySelector('a[href*="/in/"]') !== null;
+            return hasContacts;
+          },
+        }
+      );
+    }
+
+    // If not found via waitForElement (or not on job detail page), try immediate lookup
+    if (!foundSection) {
+      // Try immediate lookup for search results or if waitForElement didn't find it
+      const immediateSelectors = [
         ".job-details-people-who-can-help__section--two-pane",
         ".job-details-people-who-can-help__section--single-pane",
         ".job-details-people-who-can-help__section",
         '[class*="people-who-can-help"]',
-      ],
-      document,
-      {
-        maxRetries: 15,
-        initialDelay: 300,
-        retryDelay: 500,
-        minContentLength: 0,
-        validator: (el) => {
-          // Skip if it's a loader
-          if (el.querySelector(".artdeco-loader") !== null) {
-            return false;
-          }
-          // Check if it has actual contact cards
-          const hasContacts =
-            el.querySelector(".hirer-card__hirer-information") !== null ||
-            el.querySelector('a[href*="/in/"]') !== null;
-          return hasContacts;
-        },
+      ];
+      for (const selector of immediateSelectors) {
+        foundSection = document.querySelector(selector);
+        if (foundSection) break;
       }
-    );
+    }
 
     if (!foundSection) {
-      // Section not found or still loading - return empty array
+      // Section not found - return empty array
       return contacts;
     }
 
@@ -887,61 +910,65 @@ export async function extractJobDataFromPage(): Promise<JobData | null> {
     const company = companyElement?.textContent?.trim() || "";
 
     // Extract full job description as HTML
-    // Wait for the description element to appear with content (LinkedIn loads dynamically)
+    // Only wait for dynamically loaded content on job detail pages (/jobs/view/)
+    // For other pages (search results), use immediate lookup for better performance
     let descriptionElement: HTMLElement | null = null;
+    const isJobDetailPage = window.location.pathname.includes("/jobs/view/");
 
-    // Wait for #job-details or .jobs-box__html-content to appear with content
-    descriptionElement = await waitForElement(
-      ["#job-details", ".jobs-box__html-content"],
-      document,
-      {
-        maxRetries: 15,
-        initialDelay: 200,
-        retryDelay: 400,
-        exponentialBackoff: false,
-        minContentLength: 200, // Wait for at least 200 chars of content
-        checkNestedContent: true,
-        validator: (el) => {
-          // Skip if it's a skeleton or loader
-          if (
-            el.classList.contains("scaffold-skeleton-container") ||
-            el.classList.contains("job-description-skeleton__text-container") ||
-            el.querySelector(".scaffold-skeleton-container") !== null ||
-            el.querySelector(".artdeco-loader") !== null
-          ) {
-            return false;
-          }
+    if (isJobDetailPage) {
+      // Wait for #job-details or .jobs-box__html-content to appear with content
+      descriptionElement = await waitForElement(
+        ["#job-details", ".jobs-box__html-content"],
+        document,
+        {
+          maxRetries: 15,
+          initialDelay: 200,
+          retryDelay: 400,
+          exponentialBackoff: false,
+          minContentLength: 200, // Wait for at least 200 chars of content
+          checkNestedContent: true,
+          validator: (el) => {
+            // Skip if it's a skeleton or loader
+            if (
+              el.classList.contains("scaffold-skeleton-container") ||
+              el.classList.contains("job-description-skeleton__text-container") ||
+              el.querySelector(".scaffold-skeleton-container") !== null ||
+              el.querySelector(".artdeco-loader") !== null
+            ) {
+              return false;
+            }
 
-          // Check if element has meaningful content (not just header)
-          const textContent = el.textContent?.trim() || "";
-          // Remove loading/skeleton text
-          const cleanText = textContent
-            .replace(/loading/gi, "")
-            .replace(/scaffold-skeleton/gi, "")
-            .trim();
+            // Check if element has meaningful content (not just header)
+            const textContent = el.textContent?.trim() || "";
+            // Remove loading/skeleton text
+            const cleanText = textContent
+              .replace(/loading/gi, "")
+              .replace(/scaffold-skeleton/gi, "")
+              .trim();
 
-          // Check for actual content elements (not skeletons)
-          const contentElements = el.querySelectorAll("p, ul, ol, div.mt4");
-          const realContentElements = Array.from(contentElements).filter(
-            (child) =>
-              !child.classList.contains("scaffold-skeleton-container") &&
-              !child.querySelector(".scaffold-skeleton-container") &&
-              !child.querySelector(".artdeco-loader")
-          );
+            // Check for actual content elements (not skeletons)
+            const contentElements = el.querySelectorAll("p, ul, ol, div.mt4");
+            const realContentElements = Array.from(contentElements).filter(
+              (child) =>
+                !child.classList.contains("scaffold-skeleton-container") &&
+                !child.querySelector(".scaffold-skeleton-container") &&
+                !child.querySelector(".artdeco-loader")
+            );
 
-          const hasNestedContent = realContentElements.length > 0;
+            const hasNestedContent = realContentElements.length > 0;
 
-          // Element is ready if it has nested content AND substantial text (> 200 chars)
-          // OR if it has very substantial text (> 500 chars) even without nested elements
-          return (
-            (hasNestedContent && cleanText.length > 200) ||
-            cleanText.length > 500
-          );
-        },
-      }
-    );
+            // Element is ready if it has nested content AND substantial text (> 200 chars)
+            // OR if it has very substantial text (> 500 chars) even without nested elements
+            return (
+              (hasNestedContent && cleanText.length > 200) ||
+              cleanText.length > 500
+            );
+          },
+        }
+      );
+    }
 
-    // Fallback: If waitForElement didn't find it, try immediate lookup
+    // Fallback: If waitForElement didn't find it (or not on job detail page), try immediate lookup
     if (!descriptionElement) {
       descriptionElement = findElement(document, SELECTORS.jobDescription);
     }
