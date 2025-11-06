@@ -37,6 +37,7 @@ export interface JobData {
   linkedinJobId?: string; // Extracted LinkedIn job ID from URL or DOM
   companyData?: CompanyData; // Full company information
   contacts?: ContactData[]; // Hiring team contacts
+  rawData?: Record<string, unknown>; // Additional metadata
 }
 
 export interface JobElement {

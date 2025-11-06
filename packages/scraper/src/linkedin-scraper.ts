@@ -808,46 +808,174 @@ export class LinkedInScraper {
         }
       }
 
+      // Wait for top card container to load (same structure as Chrome extension sees)
+      try {
+        await page.waitForSelector(
+          '.job-details-jobs-unified-top-card__container--two-pane, .jobs-details-top-card, .top-card-layout',
+          { timeout: 10000 }
+        );
+        await sleep(500); // Additional wait for dynamic content
+      } catch (error) {
+        logger.debug('Top card container not found, continuing anyway', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+
       // Expand job description if "Show more" button exists
       await expandJobDescription(page);
 
-      // Extract title (try new selectors first, fallback to old ones)
-      const title =
-        (await extractText(
-          page,
-          '.top-card-layout__title, h1.top-card-layout__title, .jobs-details-top-card__job-title, h1.job-details-jobs-unified-top-card__job-title'
-        )) || null;
+      // Extract title using page.evaluate (same approach as Chrome extension)
+      const title = await page.evaluate(() => {
+        // Try new LinkedIn structure first
+        const titleEl =
+          document.querySelector(
+            'h1.job-details-jobs-unified-top-card__job-title a'
+          ) ||
+          document.querySelector(
+            '.job-details-jobs-unified-top-card__job-title h1'
+          ) ||
+          document.querySelector(
+            '.job-details-jobs-unified-top-card__job-title'
+          ) ||
+          document.querySelector('h1.top-card-layout__title') ||
+          document.querySelector('.jobs-details-top-card__job-title');
+        return titleEl?.textContent?.trim() || null;
+      });
 
       if (!title) {
         logger.warn('Failed to extract job title', { url });
         return null;
       }
 
-      // Extract company (try new selectors first, fallback to old ones)
-      const company =
-        (await extractText(
-          page,
-          '.topcard__org-name-link, .top-card-layout__second-subline a, .jobs-details-top-card__company-name, a.job-details-jobs-unified-top-card__company-name'
-        )) || null;
+      // Extract company using page.evaluate (same approach as Chrome extension)
+      const company = await page.evaluate(() => {
+        // Try new LinkedIn structure first
+        const companyEl =
+          document.querySelector(
+            'a.job-details-jobs-unified-top-card__company-name'
+          ) ||
+          document.querySelector(
+            '.job-details-jobs-unified-top-card__company-name a'
+          ) ||
+          document.querySelector(
+            '.job-details-jobs-unified-top-card__company-name'
+          ) ||
+          document.querySelector('.topcard__org-name-link') ||
+          document.querySelector('.top-card-layout__second-subline a') ||
+          document.querySelector('.jobs-details-top-card__company-name');
+        return companyEl?.textContent?.trim() || null;
+      });
 
       if (!company) {
         logger.warn('Failed to extract company name', { url });
         return null;
       }
 
-      // Extract location (try new selectors first, fallback to old ones)
-      const location =
-        (await extractText(
-          page,
-          '.topcard__flavor.topcard__flavor--bullet, .jobs-details-top-card__bullet, .job-details-jobs-unified-top-card__primary-description-without-tagline'
-        )) || null;
+      // Extract location, posted date, and metadata from tertiary container (same as Chrome extension)
+      const topSectionData = await page.evaluate(() => {
+        const tertiaryContainer = document.querySelector(
+          '.job-details-jobs-unified-top-card__tertiary-description-container'
+        );
 
-      // Extract posted date (try new selectors first, fallback to old ones)
-      const postedDate =
-        (await extractText(
-          page,
-          '.posted-time-ago__text, .jobs-details-top-card__posted-date, time'
-        )) || null;
+        let location: string | null = null;
+        let postedDate: string | null = null;
+        const metadata: string[] = [];
+        let applicantCount: number | null = null;
+        let isPromoted = false;
+        let responsesManagedOffLinkedIn = false;
+
+        if (tertiaryContainer) {
+          // Extract all spans with metadata
+          const spans = Array.from(
+            tertiaryContainer.querySelectorAll('span.tvm__text--low-emphasis')
+          );
+
+          for (let i = 0; i < spans.length; i++) {
+            const span = spans[i];
+            if (!span) continue;
+            const text = span.textContent?.trim() || null;
+
+            if (text) {
+              metadata.push(text);
+
+              // First span is usually location (if it's not a date or metadata)
+              if (i === 0) {
+                if (
+                  text &&
+                  !text.match(
+                    /\d+\s+(day|days|week|weeks|month|months|hour|hours)\s+ago/i
+                  ) &&
+                  !text.toLowerCase().includes('people clicked') &&
+                  !text.toLowerCase().includes('promoted') &&
+                  !text.toLowerCase().includes('responses')
+                ) {
+                  location = text;
+                }
+              }
+
+              // Look for posted date pattern
+              if (
+                text.match(
+                  /\d+\s+(day|days|week|weeks|month|months|hour|hours)\s+ago/i
+                )
+              ) {
+                postedDate = text;
+              }
+            }
+          }
+
+          // Extract specific metadata fields from full text
+          const fullText = tertiaryContainer.textContent || '';
+          if (fullText.includes('people clicked apply')) {
+            const match = fullText.match(/(\d+)\s+people\s+clicked\s+apply/i);
+            if (match?.[1]) {
+              applicantCount = parseInt(match[1], 10);
+            }
+          }
+          if (fullText.toLowerCase().includes('promoted by hirer')) {
+            isPromoted = true;
+          }
+          if (
+            fullText.toLowerCase().includes('responses managed off linkedin')
+          ) {
+            responsesManagedOffLinkedIn = true;
+          }
+        }
+
+        // Fallback: Try old selectors for location
+        if (!location) {
+          const locationEl =
+            document.querySelector(
+              '.job-details-jobs-unified-top-card__primary-description'
+            ) ||
+            document.querySelector(
+              '.topcard__flavor.topcard__flavor--bullet'
+            ) ||
+            document.querySelector('.jobs-details-top-card__bullet');
+          location = locationEl?.textContent?.trim() || null;
+        }
+
+        // Fallback: Try old selectors for posted date
+        if (!postedDate) {
+          const dateEl =
+            document.querySelector('.posted-time-ago__text') ||
+            document.querySelector('.jobs-details-top-card__posted-date') ||
+            document.querySelector('time');
+          postedDate = dateEl?.textContent?.trim() || null;
+        }
+
+        return {
+          location,
+          postedDate,
+          metadata,
+          applicantCount,
+          isPromoted,
+          responsesManagedOffLinkedIn,
+        };
+      });
+
+      const location = topSectionData.location;
+      const postedDate = topSectionData.postedDate;
 
       // Extract applicants count (new field)
       const applicants =
@@ -872,12 +1000,79 @@ export class LinkedInScraper {
           '.jobs-details-top-card__job-insight, .job-details-jobs-unified-top-card__job-insight'
         )) || null;
 
-      // Extract employment type (try new selectors first, fallback to old ones)
-      let employmentType =
-        (await extractText(
-          page,
-          '.jobs-details-top-card__job-insight--highlight'
-        )) || null;
+      // Extract employment type and work types using page.evaluate (same as Chrome extension)
+      const employmentData = await page.evaluate(() => {
+        let employmentType: string | null = null;
+        const workTypes: string[] = [];
+
+        // New LinkedIn structure: Look in fit-level-preferences buttons
+        const preferencesContainer = document.querySelector(
+          '.job-details-fit-level-preferences'
+        );
+
+        if (preferencesContainer) {
+          const buttons = Array.from(
+            preferencesContainer.querySelectorAll('button')
+          );
+          for (const button of buttons) {
+            const text = button.textContent?.trim() || '';
+            if (text) {
+              // Check for employment type indicators
+              if (text.match(/full[- ]?time/i)) {
+                employmentType = 'Full-time';
+              } else if (text.match(/part[- ]?time/i)) {
+                employmentType = 'Part-time';
+              } else if (text.match(/contract/i)) {
+                employmentType = 'Contract';
+              } else if (text.match(/temporary|temp/i)) {
+                employmentType = 'Temporary';
+              } else if (text.match(/internship/i)) {
+                employmentType = 'Internship';
+              } else {
+                // Other buttons are work types (Hybrid, Remote, etc.)
+                workTypes.push(text);
+              }
+            }
+          }
+        }
+
+        // Fallback: Look for job insights that might contain employment type
+        if (!employmentType) {
+          const insights = Array.from(
+            document.querySelectorAll(
+              '.job-details-jobs-unified-top-card__job-insight'
+            )
+          );
+          for (const insight of insights) {
+            const text = insight.textContent?.trim().toLowerCase() || '';
+            if (text.includes('full-time') || text.includes('full time')) {
+              employmentType = 'Full-time';
+              break;
+            }
+            if (text.includes('part-time') || text.includes('part time')) {
+              employmentType = 'Part-time';
+              break;
+            }
+            if (text.includes('contract')) {
+              employmentType = 'Contract';
+              break;
+            }
+            if (text.includes('temporary') || text.includes('temp')) {
+              employmentType = 'Temporary';
+              break;
+            }
+            if (text.includes('internship')) {
+              employmentType = 'Internship';
+              break;
+            }
+          }
+        }
+
+        return { employmentType, workTypes };
+      });
+
+      let employmentType = employmentData.employmentType;
+      const workTypes = employmentData.workTypes;
 
       // Extract job criteria (seniority level, employment type, job function, industries)
       // Use position-based extraction instead of text matching for language independence
@@ -962,6 +1157,28 @@ export class LinkedInScraper {
       // Extract hiring team contacts
       const contacts = await this.extractHiringTeam(page);
 
+      // Build rawData from extracted top section data (already extracted above)
+      const rawData: Record<string, unknown> = {
+        linkedinJobId: linkedinJobId || undefined,
+      };
+
+      if (topSectionData.metadata.length > 0) {
+        rawData.metadata = topSectionData.metadata;
+      }
+      if (topSectionData.applicantCount !== null) {
+        rawData.applicantCount = topSectionData.applicantCount;
+      }
+      if (topSectionData.isPromoted) {
+        rawData.isPromoted = topSectionData.isPromoted;
+      }
+      if (topSectionData.responsesManagedOffLinkedIn) {
+        rawData.responsesManagedOffLinkedIn =
+          topSectionData.responsesManagedOffLinkedIn;
+      }
+      if (workTypes.length > 0) {
+        rawData.workTypes = workTypes;
+      }
+
       return {
         linkedinJobId: linkedinJobId || '',
         url,
@@ -979,6 +1196,7 @@ export class LinkedInScraper {
         jobFunction,
         industries,
         contacts: contacts.length > 0 ? contacts : undefined,
+        rawData,
         discoverySource: 'scraper',
       };
     } catch (error) {

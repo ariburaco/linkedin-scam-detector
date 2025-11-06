@@ -72,11 +72,40 @@ function extractLinkedInJobId(url: string): string | undefined {
 
 /**
  * Extract employment type from job insights
+ * New LinkedIn structure: Look in .job-details-fit-level-preferences for buttons
  */
 function extractEmploymentType(
   container: HTMLElement | Document
 ): string | undefined {
-  // Look for job insights that might contain employment type
+  // First try: New LinkedIn structure - look for buttons in fit-level-preferences
+  const preferencesContainer = container.querySelector(
+    ".job-details-fit-level-preferences"
+  );
+  
+  if (preferencesContainer) {
+    const buttons = preferencesContainer.querySelectorAll("button");
+    for (const button of buttons) {
+      const text = button.textContent?.trim() || "";
+      // Check for employment type indicators
+      if (text.match(/full[- ]?time/i)) {
+        return "Full-time";
+      }
+      if (text.match(/part[- ]?time/i)) {
+        return "Part-time";
+      }
+      if (text.match(/contract/i)) {
+        return "Contract";
+      }
+      if (text.match(/temporary|temp/i)) {
+        return "Temporary";
+      }
+      if (text.match(/internship/i)) {
+        return "Internship";
+      }
+    }
+  }
+  
+  // Fallback: Look for job insights that might contain employment type
   const insights = container.querySelectorAll(
     ".job-details-jobs-unified-top-card__job-insight"
   );
@@ -103,11 +132,29 @@ function extractEmploymentType(
 
 /**
  * Extract posted date if available
+ * New LinkedIn structure: Look in .job-details-jobs-unified-top-card__tertiary-description-container
  */
 function extractPostedDate(
   container: HTMLElement | Document
 ): string | undefined {
-  // Look for "Posted X days ago" or similar patterns
+  // First try: New LinkedIn structure - look in tertiary description container
+  const tertiaryContainer = container.querySelector(
+    ".job-details-jobs-unified-top-card__tertiary-description-container"
+  );
+  
+  if (tertiaryContainer) {
+    // Look for spans containing date patterns
+    const spans = tertiaryContainer.querySelectorAll("span");
+    for (const span of spans) {
+      const text = span.textContent?.trim() || "";
+      // Match patterns like "4 weeks ago", "2 days ago", "1 month ago", etc.
+      if (text.match(/\d+\s+(day|days|week|weeks|month|months|hour|hours)\s+ago/i)) {
+        return text;
+      }
+    }
+  }
+  
+  // Fallback: Look for "Posted X days ago" or similar patterns in old structure
   const insightElements = container.querySelectorAll(
     ".job-details-jobs-unified-top-card__job-insight, .jobs-unified-top-card__primary-description-without-tagline"
   );
@@ -689,8 +736,30 @@ export function extractJobDataFromPage(): JobData | null {
     const salary = salaryElement?.textContent?.trim();
 
     // Extract location if available
-    const locationElement = findElement(document, SELECTORS.location);
-    const location = locationElement?.textContent?.trim();
+    // New LinkedIn structure: First span in tertiary description container
+    let location: string | undefined;
+    const tertiaryContainer = document.querySelector(
+      ".job-details-jobs-unified-top-card__tertiary-description-container"
+    );
+    if (tertiaryContainer) {
+      // Get first span with location text (before the "·" separator)
+      const spans = Array.from(tertiaryContainer.querySelectorAll("span.tvm__text--low-emphasis"));
+      if (spans.length > 0) {
+        const locationText = spans[0]?.textContent?.trim();
+        // Make sure it's not a date or other metadata
+        if (locationText && !locationText.match(/\d+\s+(day|days|week|weeks|month|months|hour|hours)\s+ago/i) && 
+            !locationText.toLowerCase().includes("people clicked") &&
+            !locationText.toLowerCase().includes("promoted") &&
+            !locationText.toLowerCase().includes("responses")) {
+          location = locationText;
+        }
+      }
+    }
+    // Fallback to old selector
+    if (!location) {
+      const locationElement = findElement(document, SELECTORS.location);
+      location = locationElement?.textContent?.trim();
+    }
 
     // Extract employment type
     const employmentType = extractEmploymentType(document);
@@ -704,6 +773,59 @@ export function extractJobDataFromPage(): JobData | null {
     // Extract hiring team contacts
     const contacts = extractHiringTeam(document);
 
+    // Extract additional metadata for rawData
+    const rawData: Record<string, unknown> = {
+      linkedinJobId,
+    };
+
+    // Extract additional metadata from tertiary description container (reuse variable)
+    if (tertiaryContainer) {
+      const spans = Array.from(tertiaryContainer.querySelectorAll("span.tvm__text--low-emphasis"));
+      const metadata: string[] = [];
+      for (const span of spans) {
+        const text = span.textContent?.trim();
+        if (text) {
+          metadata.push(text);
+        }
+      }
+      if (metadata.length > 0) {
+        rawData.metadata = metadata;
+      }
+      
+      // Extract specific metadata fields
+      const fullText = tertiaryContainer.textContent || "";
+      if (fullText.includes("people clicked apply")) {
+        const match = fullText.match(/(\d+)\s+people\s+clicked\s+apply/i);
+        if (match?.[1]) {
+          rawData.applicantCount = parseInt(match[1], 10);
+        }
+      }
+      if (fullText.toLowerCase().includes("promoted by hirer")) {
+        rawData.isPromoted = true;
+      }
+      if (fullText.toLowerCase().includes("responses managed off linkedin")) {
+        rawData.responsesManagedOffLinkedIn = true;
+      }
+    }
+
+    // Extract work type (Hybrid, Remote, etc.) from fit-level-preferences
+    const preferencesContainer = document.querySelector(
+      ".job-details-fit-level-preferences"
+    );
+    if (preferencesContainer) {
+      const buttons = Array.from(preferencesContainer.querySelectorAll("button"));
+      const workTypes: string[] = [];
+      for (const button of buttons) {
+        const text = button.textContent?.trim();
+        if (text && !text.match(/full[- ]?time|part[- ]?time|contract|temporary|internship/i)) {
+          workTypes.push(text);
+        }
+      }
+      if (workTypes.length > 0) {
+        rawData.workTypes = workTypes;
+      }
+    }
+
     return {
       title,
       company,
@@ -716,6 +838,7 @@ export function extractJobDataFromPage(): JobData | null {
       linkedinJobId,
       companyData: companyData || undefined,
       contacts: contacts.length > 0 ? contacts : undefined,
+      rawData,
     };
   } catch (error) {
     extensionLoggerContent.error(

@@ -64,6 +64,7 @@ export const SELECTORS = {
 
   // Location information
   location: [
+    ".job-details-jobs-unified-top-card__tertiary-description-container span.tvm__text--low-emphasis", // New structure - first span in tertiary container
     ".job-details-jobs-unified-top-card__primary-description",
     ".job-search-card__location",
     "[data-test-id='job-location']",
