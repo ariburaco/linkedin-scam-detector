@@ -467,12 +467,13 @@ export class LinkedInScraper {
         if (showMoreButton) {
           await showMoreButton.click();
           await sleep(500);
-          description = await page.evaluate((el) => {
-            const descEl =
-              el.querySelector('.jobs-company__description') ||
-              el.querySelector('p');
-            return descEl?.textContent?.trim() || null;
-          }, companySection) || description;
+          description =
+            (await page.evaluate((el) => {
+              const descEl =
+                el.querySelector('.jobs-company__description') ||
+                el.querySelector('p');
+              return descEl?.textContent?.trim() || null;
+            }, companySection)) || description;
         }
       } catch (error) {
         // Ignore errors when trying to expand description
@@ -495,7 +496,9 @@ export class LinkedInScraper {
       }, companySection);
 
       const linkedinEmployeeCount = await page.evaluate((el) => {
-        const countEl = el.querySelector('.jobs-company__linkedin-employee-count');
+        const countEl = el.querySelector(
+          '.jobs-company__linkedin-employee-count'
+        );
         return countEl?.textContent?.trim() || null;
       }, companySection);
 
@@ -539,16 +542,50 @@ export class LinkedInScraper {
 
     try {
       // Find the "Meet the hiring team" section
-      const hiringTeamSelectors = [
-        'section[data-test-id="hiring-team"]',
-        '.jobs-hiring-team',
-        '[class*="hiring-team"]',
-      ];
-
+      // First try: Look for h2 containing "Meet the hiring team" and get parent container
       let hiringTeamSection: any = null;
-      for (const selector of hiringTeamSelectors) {
-        hiringTeamSection = await page.$(selector);
-        if (hiringTeamSection) break;
+
+      // Use evaluateHandle to get ElementHandle, then find parent
+      const h2Handles = await page.$$('h2');
+      for (const h2Handle of h2Handles) {
+        const text = await page.evaluate(
+          (el) => el.textContent?.toLowerCase() || '',
+          h2Handle
+        );
+        if (
+          text.includes('meet the hiring team') ||
+          text.includes('hiring team')
+        ) {
+          // Find the parent container
+          hiringTeamSection = await page.evaluateHandle((h2) => {
+            return (
+              h2.closest(
+                '.job-details-people-who-can-help__section--two-pane'
+              ) ||
+              h2.closest('[class*="people-who-can-help"]') ||
+              h2.closest('section') ||
+              h2.parentElement
+            );
+          }, h2Handle);
+          if (hiringTeamSection) break;
+        }
+      }
+
+      // Fallback: Try other selectors
+      if (!hiringTeamSection) {
+        const hiringTeamSelectors = [
+          '.job-details-people-who-can-help__section--two-pane',
+          '[class*="job-details-people-who-can-help"]',
+          'section[data-test-id="hiring-team"]',
+          'section[data-test-id*="hiring"]',
+          '.jobs-hiring-team',
+          '[class*="hiring-team"]',
+        ];
+
+        for (const selector of hiringTeamSelectors) {
+          hiringTeamSection = await page.$(selector);
+          if (hiringTeamSection) break;
+        }
       }
 
       if (!hiringTeamSection) {
@@ -557,17 +594,44 @@ export class LinkedInScraper {
       }
 
       // Find all contact cards
-      const contactCardSelectors = [
-        '.jobs-hiring-team__member',
-        '.hiring-team-member',
-        'li[class*="hiring-team"]',
-        '[data-test-id="hiring-team-member"]',
-      ];
-
+      // New LinkedIn structure: Look for .hirer-card__hirer-information
       let contactCards: any[] = [];
-      for (const selector of contactCardSelectors) {
-        contactCards = await hiringTeamSection.$$(selector);
-        if (contactCards.length > 0) break;
+
+      // First try: Look for divs containing .hirer-card__hirer-information
+      const hirerInfoElements = await hiringTeamSection.$$(
+        '.hirer-card__hirer-information'
+      );
+
+      if (hirerInfoElements.length > 0) {
+        // Get parent divs (the contact card containers)
+        contactCards = await Promise.all(
+          hirerInfoElements.map(async (el: any) => {
+            return await page.evaluateHandle((element: Element) => {
+              return (
+                element.closest('div.display-flex.align-items-center') ||
+                element.parentElement
+              );
+            }, el);
+          })
+        );
+        logger.debug(
+          `Found ${contactCards.length} contact cards using .hirer-card__hirer-information`
+        );
+      }
+
+      // Fallback: Try other selectors
+      if (contactCards.length === 0) {
+        const contactCardSelectors = [
+          '.jobs-hiring-team__member',
+          '.hiring-team-member',
+          'li[class*="hiring-team"]',
+          '[data-test-id="hiring-team-member"]',
+        ];
+
+        for (const selector of contactCardSelectors) {
+          contactCards = await hiringTeamSection.$$(selector);
+          if (contactCards.length > 0) break;
+        }
       }
 
       for (const card of contactCards) {
@@ -592,8 +656,11 @@ export class LinkedInScraper {
             : `https://www.linkedin.com${profileUrl}`;
 
           // Extract name
+          // New LinkedIn structure: .jobs-poster__name > strong
           const name = await page.evaluate((el) => {
             const nameEl =
+              el.querySelector('.jobs-poster__name strong') ||
+              el.querySelector('.jobs-poster__name') ||
               el.querySelector('.hiring-team-member__name') ||
               el.querySelector('.jobs-hiring-team__member-name');
             return nameEl?.textContent?.trim() || null;
@@ -608,43 +675,64 @@ export class LinkedInScraper {
           }, card);
 
           // Extract verified status
+          // New LinkedIn structure: .tvm__text--low-emphasis with SVG containing verified-small
           const isVerified = await page.evaluate((el) => {
             return (
-              el.querySelector('[aria-label*="Verified"]') !== null ||
+              el.querySelector('[aria-label*="verified"]') !== null ||
+              el.querySelector('[data-test-icon="verified-small"]') !== null ||
+              el.querySelector(
+                '.tvm__text--low-emphasis svg[data-test-icon="verified-small"]'
+              ) !== null ||
               el.querySelector('[class*="verified"]') !== null
             );
           }, card);
 
           // Extract role/title
-          const role = await page.evaluate((el) => {
-            const roleEl =
-              el.querySelector('.hiring-team-member__role') ||
-              el.querySelector('.jobs-hiring-team__member-role');
-            return roleEl?.textContent?.trim() || null;
-          }, card);
-
-          // Extract full title
+          // New LinkedIn structure: .text-body-small.t-black contains the title/role
+          // Look within .hirer-card__hirer-information or .linked-area
           const title = await page.evaluate((el) => {
+            const hirerInfo = el.querySelector(
+              '.hirer-card__hirer-information'
+            );
+            const linkedArea = hirerInfo?.querySelector('.linked-area');
             const titleEl =
+              linkedArea?.querySelector('.text-body-small.t-black') ||
               el.querySelector('.hiring-team-member__title') ||
               el.querySelector('.jobs-hiring-team__member-title');
             return titleEl?.textContent?.trim() || null;
           }, card);
 
+          // Extract role (if separate from title, or use title as role)
+          const role =
+            (await page.evaluate((el) => {
+              const roleEl =
+                el.querySelector('.hiring-team-member__role') ||
+                el.querySelector('.jobs-hiring-team__member-role');
+              return roleEl?.textContent?.trim() || null;
+            }, card)) ||
+            title ||
+            null;
+
           // Extract connection degree
+          // New LinkedIn structure: .hirer-card__connection-degree
           const connectionDegree = await page.evaluate((el) => {
             const connEl =
+              el.querySelector('.hirer-card__connection-degree') ||
               el.querySelector('.hiring-team-member__connection') ||
               el.querySelector('.jobs-hiring-team__member-connection');
             return connEl?.textContent?.trim() || null;
           }, card);
 
           // Check if this is the job poster
+          // New LinkedIn structure: .hirer-card__job-poster contains "Job poster"
           const isJobPoster = await page.evaluate((el) => {
+            const jobPosterEl = el.querySelector('.hirer-card__job-poster');
             const text = el.textContent?.toLowerCase() || '';
             return (
-              text.includes('posted') ||
+              jobPosterEl?.textContent?.toLowerCase().includes('job poster') ===
+                true ||
               text.includes('job poster') ||
+              text.includes('posted') ||
               el.querySelector('[data-test-id="job-poster"]') !== null
             );
           }, card);

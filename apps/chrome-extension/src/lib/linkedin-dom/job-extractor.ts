@@ -348,34 +348,159 @@ function extractHiringTeam(document: Document): ContactData[] {
 
   try {
     // Find the "Meet the hiring team" section
+    // Try multiple selectors to catch different LinkedIn UI variations
     const hiringTeamSelectors = [
+      // New LinkedIn structure (from DOM provided)
+      ".job-details-people-who-can-help__section--two-pane",
+      '[class*="job-details-people-who-can-help"]',
+      // Old selectors for backward compatibility
       'section[data-test-id="hiring-team"]',
+      'section[data-test-id*="hiring"]',
       ".jobs-hiring-team",
       '[class*="hiring-team"]',
-    ];
+      '[class*="hiringTeam"]',
+      // Look for h2 containing "Meet the hiring team" and get parent
+      (() => {
+        const h2 = Array.from(document.querySelectorAll("h2")).find(
+          (el) =>
+            el.textContent
+              ?.toLowerCase()
+              .includes("meet the hiring team") ||
+            el.textContent?.toLowerCase().includes("hiring team")
+        );
+        return h2?.closest("div[class*='people-who-can-help']") ||
+          h2?.closest("section") ||
+          h2?.parentElement;
+      })(),
+    ].filter(Boolean) as string[];
 
     let hiringTeamSection: Element | null = null;
-    for (const selector of hiringTeamSelectors) {
-      hiringTeamSection = findElement(document, [selector]);
-      if (hiringTeamSection) break;
+    
+    // First try: Look for h2 containing "Meet the hiring team" and get parent container
+    const h2Element = Array.from(document.querySelectorAll("h2")).find(
+      (el) =>
+        el.textContent?.toLowerCase().includes("meet the hiring team") ||
+        el.textContent?.toLowerCase().includes("hiring team")
+    );
+    
+    if (h2Element) {
+      // Find the parent container (usually a div with class containing "people-who-can-help")
+      hiringTeamSection =
+        h2Element.closest(".job-details-people-who-can-help__section--two-pane") ||
+        h2Element.closest('[class*="people-who-can-help"]') ||
+        h2Element.closest("section") ||
+        h2Element.parentElement;
+    }
+    
+    // Fallback: Try other selectors
+    if (!hiringTeamSection) {
+      for (const selector of hiringTeamSelectors) {
+        if (typeof selector === "function") continue; // Skip function selectors
+        hiringTeamSection = findElement(document, [selector]);
+        if (hiringTeamSection) break;
+      }
     }
 
     if (!hiringTeamSection) {
+      extensionLoggerContent.debug(
+        "[LinkedIn Scam Detector] Hiring team section not found. Tried selectors:",
+        hiringTeamSelectors
+      );
       return contacts;
     }
 
+    extensionLoggerContent.debug(
+      "[LinkedIn Scam Detector] Found hiring team section:",
+      {
+        tagName: hiringTeamSection.tagName,
+        className: hiringTeamSection.className,
+        id: hiringTeamSection.id,
+      }
+    );
+
     // Find all contact cards
+    // Based on DOM structure: <div class="display-flex align-items-center mt4">
+    // But we need to be more specific - look for divs containing profile links and hirer-card classes
     const contactCardSelectors = [
+      // New LinkedIn structure: div containing .hirer-card__hirer-information
+      'div.display-flex.align-items-center.mt4:has(.hirer-card__hirer-information)',
+      'div:has(.hirer-card__hirer-information)',
+      // More generic: divs with display-flex that contain profile links
+      'div.display-flex.align-items-center:has(a[href*="/in/"])',
+      // Old selectors for backward compatibility
       ".jobs-hiring-team__member",
       ".hiring-team-member",
+      ".hiringTeamMember",
       'li[class*="hiring-team"]',
+      'li[class*="hiringTeam"]',
       '[data-test-id="hiring-team-member"]',
+      '[data-test-id*="hiring-team"]',
     ];
 
     let contactCards: Element[] = [];
-    for (const selector of contactCardSelectors) {
-      contactCards = Array.from(hiringTeamSection.querySelectorAll(selector));
-      if (contactCards.length > 0) break;
+    
+    // First try: Look for divs containing .hirer-card__hirer-information (new LinkedIn structure)
+    const hirerInfoElements = Array.from(
+      hiringTeamSection.querySelectorAll(".hirer-card__hirer-information")
+    );
+    
+    if (hirerInfoElements.length > 0) {
+      // Get parent divs (the contact card containers)
+      contactCards = hirerInfoElements
+        .map((el) => el.closest("div.display-flex.align-items-center") || el.parentElement)
+        .filter((el): el is Element => el !== null && el !== undefined);
+      
+      extensionLoggerContent.debug(
+        `[LinkedIn Scam Detector] Found ${contactCards.length} contact cards using .hirer-card__hirer-information`
+      );
+    }
+    
+    // Fallback: Try other selectors
+    if (contactCards.length === 0) {
+      for (const selector of contactCardSelectors) {
+        // Skip :has() selectors as they may not be supported in all browsers
+        if (selector.includes(":has(")) {
+          // Manual check for :has() pattern
+          const baseSelector = selector.split(":has(")[0];
+          const hasSelector = selector.match(/:has\(([^)]+)\)/)?.[1];
+          if (baseSelector && hasSelector) {
+            const elements = Array.from(
+              hiringTeamSection.querySelectorAll(baseSelector)
+            );
+            contactCards = elements.filter((el) => {
+              try {
+                return el.querySelector(hasSelector) !== null;
+              } catch {
+                return false;
+              }
+            });
+            if (contactCards.length > 0) {
+              extensionLoggerContent.debug(
+                `[LinkedIn Scam Detector] Found ${contactCards.length} contact cards using selector: ${selector}`
+              );
+              break;
+            }
+          }
+        } else {
+          contactCards = Array.from(hiringTeamSection.querySelectorAll(selector));
+          if (contactCards.length > 0) {
+            extensionLoggerContent.debug(
+              `[LinkedIn Scam Detector] Found ${contactCards.length} contact cards using selector: ${selector}`
+            );
+            break;
+          }
+        }
+      }
+    }
+
+    if (contactCards.length === 0) {
+      extensionLoggerContent.debug(
+        "[LinkedIn Scam Detector] No contact cards found. Tried selectors:",
+        contactCardSelectors,
+        {
+          sectionHTML: hiringTeamSection.innerHTML.substring(0, 500), // First 500 chars for debugging
+        }
+      );
     }
 
     for (const card of contactCards) {
@@ -398,7 +523,11 @@ function extractHiringTeam(document: Document): ContactData[] {
           : `https://www.linkedin.com${profileUrl}`;
 
         // Extract name
+        // New LinkedIn structure: .jobs-poster__name > strong
+        // Old structure: .hiring-team-member__name or .jobs-hiring-team__member-name
         const nameElement =
+          card.querySelector(".jobs-poster__name strong") ||
+          card.querySelector(".jobs-poster__name") ||
           card.querySelector(".hiring-team-member__name") ||
           card.querySelector(".jobs-hiring-team__member-name");
         const name = nameElement?.textContent?.trim() || null;
@@ -411,33 +540,50 @@ function extractHiringTeam(document: Document): ContactData[] {
           profileImageElement?.getAttribute("src") || null;
 
         // Extract verified status
+        // New LinkedIn structure: .tvm__text--low-emphasis with SVG containing verified-small
+        // Also check aria-label and class names
         const isVerified =
-          card.querySelector('[aria-label*="Verified"]') !== null ||
+          card.querySelector('[aria-label*="verified"]') !== null ||
+          card.querySelector('[data-test-icon="verified-small"]') !== null ||
+          card.querySelector('.tvm__text--low-emphasis svg[data-test-icon="verified-small"]') !== null ||
           card.querySelector('[class*="verified"]') !== null;
 
         // Extract role/title
-        const roleElement =
-          card.querySelector(".hiring-team-member__role") ||
-          card.querySelector(".jobs-hiring-team__member-role");
-        const role = roleElement?.textContent?.trim() || null;
-
-        // Extract full title
+        // New LinkedIn structure: .text-body-small.t-black contains the title/role
+        // Look within .hirer-card__hirer-information or .linked-area
+        const hirerInfo = card.querySelector(".hirer-card__hirer-information");
+        const linkedArea = hirerInfo?.querySelector(".linked-area");
+        
+        // Extract full title (e.g., "Senior Talent Acquisition and Employer Branding Specialist @Pegasus Airlines")
         const titleElement =
+          linkedArea?.querySelector(".text-body-small.t-black") ||
           card.querySelector(".hiring-team-member__title") ||
           card.querySelector(".jobs-hiring-team__member-title");
         const title = titleElement?.textContent?.trim() || null;
+        
+        // Extract role (if separate from title, or extract from title)
+        // For now, use title as role if no separate role field exists
+        const roleElement =
+          card.querySelector(".hiring-team-member__role") ||
+          card.querySelector(".jobs-hiring-team__member-role");
+        const role = roleElement?.textContent?.trim() || title || null;
 
         // Extract connection degree
+        // New LinkedIn structure: .hirer-card__connection-degree
         const connectionElement =
+          card.querySelector(".hirer-card__connection-degree") ||
           card.querySelector(".hiring-team-member__connection") ||
           card.querySelector(".jobs-hiring-team__member-connection");
         const connectionDegree = connectionElement?.textContent?.trim() || null;
 
         // Check if this is the job poster
+        // New LinkedIn structure: .hirer-card__job-poster contains "Job poster"
+        const jobPosterElement = card.querySelector(".hirer-card__job-poster");
         const cardText = card.textContent?.toLowerCase() || "";
         const isJobPoster =
-          cardText.includes("posted") ||
+          jobPosterElement?.textContent?.toLowerCase().includes("job poster") === true ||
           cardText.includes("job poster") ||
+          cardText.includes("posted") ||
           card.querySelector('[data-test-id="job-poster"]') !== null;
 
         // Determine relationship type
