@@ -1,6 +1,15 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
+// Skip validation in non-Node.js environments (browser, Chrome extension, etc.)
+const isNode =
+  typeof process !== "undefined" &&
+  process.versions != null &&
+  process.versions.node != null;
+
+const shouldSkipValidation =
+  !isNode || !!process.env?.CI || !!process.env?.SKIP_ENV_VALIDATION;
+
 export const env = createEnv({
   server: {
     // Database
@@ -42,6 +51,6 @@ export const env = createEnv({
     // Client-side runtime env (if needed)
     // NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
-  skipValidation: !!process.env.CI || !!process.env.SKIP_ENV_VALIDATION,
+  skipValidation: shouldSkipValidation,
   emptyStringAsUndefined: true,
 });

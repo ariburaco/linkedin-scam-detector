@@ -1,7 +1,9 @@
 import { initTRPC, TRPCError } from "@trpc/server";
+import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import superjson from "superjson";
 
 import type { Context } from "./context";
+import type { AppRouter } from "./routers";
 
 export const t = initTRPC.context<Context>().create({
   transformer: superjson,
@@ -26,3 +28,21 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
     },
   });
 });
+
+/**
+ * Inference helpers for input types
+ * @example
+ * type PostByIdInput = RouterInputs['post']['byId']
+ *      ^? { id: number }
+ **/
+type RouterInputs = inferRouterInputs<AppRouter>;
+
+/**
+ * Inference helpers for output types
+ * @example
+ * type AllPostsOutput = RouterOutputs['post']['all']
+ *      ^? Post[]
+ **/
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+
+export type { AppRouter, RouterInputs, RouterOutputs };

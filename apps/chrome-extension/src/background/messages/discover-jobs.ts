@@ -2,9 +2,14 @@
  * Message handler for discovering jobs from LinkedIn search/collection pages
  */
 
+import { FEATURE_FLAG_KEYS } from "@acme/shared";
 import type { PlasmoMessaging } from "@plasmohq/messaging";
 
 import type { DiscoveredJobData } from "../../lib/linkedin-dom/types";
+import {
+  getFeatureFlagOverrides,
+  mergeFeatureFlags,
+} from "../../lib/storage/feature-flags-storage";
 import { callerApi } from "../../trpc/caller";
 
 export interface DiscoverJobsRequestBody {
@@ -23,6 +28,19 @@ const handler: PlasmoMessaging.MessageHandler<
   DiscoverJobsResponseBody
 > = async (req, res) => {
   try {
+    // Check if job discovery feature is enabled (with local overrides)
+    const serverFlags = await callerApi.featureFlags.getAll.query();
+    const localOverrides = await getFeatureFlagOverrides();
+    const mergedFlags = mergeFeatureFlags(serverFlags, localOverrides);
+    const discoveryEnabled =
+      mergedFlags[FEATURE_FLAG_KEYS.JOB_DISCOVERY] ?? true;
+
+    if (!discoveryEnabled) {
+      // Silently return success - feature is disabled
+      res.send({ success: true });
+      return;
+    }
+
     const jobs = req.body?.jobs;
 
     if (!jobs || jobs.length === 0) {

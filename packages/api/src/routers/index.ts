@@ -1,5 +1,6 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
 
+import { featureFlagsRouter } from "./feature-flags";
 import { scamDetectorRouter } from "./scam-detector";
 
 export const appRouter = router({
@@ -13,5 +14,6 @@ export const appRouter = router({
     };
   }),
   scamDetector: scamDetectorRouter,
+  featureFlags: featureFlagsRouter,
 });
 export type AppRouter = typeof appRouter;

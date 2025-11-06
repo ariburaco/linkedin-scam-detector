@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 
+import { FEATURE_FLAG_KEYS } from "@acme/shared";
 import { Logger } from "@acme/shared/Logger";
 import { z } from "zod";
 
@@ -8,6 +9,7 @@ import type { ScamAnalysisResult } from "../schemas/scam-analysis";
 import { aiService } from "../services/ai.service";
 import { batchEmbeddingService } from "../services/batch-embedding.service";
 import { DiscoveredJobService } from "../services/discovered-job.service";
+import { FeatureFlagsService } from "../services/feature-flags.service";
 import { FeedbackService } from "../services/feedback.service";
 import { JobAnalysisService } from "../services/job-analysis.service";
 import { JobExtractionService } from "../services/job-extraction.service";
@@ -69,11 +71,16 @@ export const scamDetectorRouter = router({
         rawData: input.rawData || null,
       });
 
+      // Check if embeddings feature is enabled
+      const embeddingsEnabled = await FeatureFlagsService.get(
+        FEATURE_FLAG_KEYS.JOB_EMBEDDINGS
+      );
+
       // Check if embedding already exists before starting workflow
       const hasExistingEmbedding = await JobService.hasEmbedding(job.id);
 
       let workflowId: string | undefined;
-      if (!hasExistingEmbedding) {
+      if (embeddingsEnabled && !hasExistingEmbedding) {
         // Trigger async embedding generation workflow (fire-and-forget)
         try {
           const workflowResult =
@@ -91,6 +98,8 @@ export const scamDetectorRouter = router({
             error instanceof Error ? error.message : "Unknown error"
           );
         }
+      } else if (!embeddingsEnabled) {
+        logger.info("Job embeddings feature is disabled, skipping workflow");
       } else {
         console.log(
           `[saveJob] Skipping embedding workflow - job ${job.id} already has embedding`
@@ -111,6 +120,15 @@ export const scamDetectorRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      // Check if job extraction feature is enabled
+      const extractionEnabled = await FeatureFlagsService.get(
+        FEATURE_FLAG_KEYS.JOB_EXTRACTION
+      );
+
+      if (!extractionEnabled) {
+        throw new Error("Job extraction feature is currently disabled");
+      }
+
       const { jobId, jobText, jobTitle, companyName } = input;
 
       // Check if job exists using service
@@ -386,6 +404,17 @@ export const scamDetectorRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // Check if job discovery feature is enabled
+      const discoveryEnabled = await FeatureFlagsService.get(
+        FEATURE_FLAG_KEYS.JOB_DISCOVERY
+      );
+
+      if (!discoveryEnabled) {
+        // Silently return success - feature is disabled
+        logger.info("Job discovery feature is disabled, skipping");
+        return { success: true };
+      }
+
       const discoveredBy = ctx.session?.user?.id;
 
       // Fire-and-forget: trigger workflow to save jobs asynchronously

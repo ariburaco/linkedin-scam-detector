@@ -1,9 +1,19 @@
 {
   "name": "@acme/api",
+  "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./routers": "./src/routers/index.ts",
-    "./context": "./src/context.ts",
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./routers": {
+      "types": "./src/routers/index.ts",
+      "default": "./src/routers/index.ts"
+    },
+    "./context": {
+      "types": "./src/context.ts",
+      "default": "./src/context.ts"
+    },
     "./services/embedding.service": "./src/services/embedding.service.ts",
     "./services/ai.service": "./src/services/ai.service.ts",
     "./services/batch-embedding.service": "./src/services/batch-embedding.service.ts",
@@ -14,7 +24,9 @@
     "./services/job-search.service": "./src/services/job-search.service.ts",
     "./services/feedback.service": "./src/services/feedback.service.ts",
     "./services/discovered-job.service": "./src/services/discovered-job.service.ts",
-    "./schemas/job-extraction": "./src/schemas/job-extraction.ts"
+    "./services/feature-flags.service": "./src/services/feature-flags.service.ts",
+    "./schemas/job-extraction": "./src/schemas/job-extraction.ts",
+    "./schemas/feature-flags": "./src/schemas/feature-flags.ts"
   },
   "type": "module",
   "scripts": {

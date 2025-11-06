@@ -241,6 +241,7 @@
     "packages/db": {
       "name": "@acme/db",
       "dependencies": {
+        "@acme/shared": "workspace:*",
         "@prisma/client": "catalog:",
         "dotenv": "catalog:",
         "zod": "catalog:",

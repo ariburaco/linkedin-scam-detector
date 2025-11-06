@@ -50,6 +50,7 @@
     "db:studio": "turbo -F @acme/db db:studio",
     "db:generate": "turbo -F @acme/db db:generate",
     "db:migrate": "turbo -F @acme/db db:migrate",
+    "db:seed": "turbo -F @acme/db db:seed",
     "docker:up": "docker compose -f ./docker-compose.yml up -d",
     "docker:down": "docker compose -f ./docker-compose.yml down",
     "docker:stop": "docker compose -f ./docker-compose.yml stop",

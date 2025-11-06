@@ -5,8 +5,6 @@ import superjson from "superjson";
 import { API_URL, IS_DEV } from "@/constants/constants";
 import { getStoredCookies } from "@/shared/sessionManager";
 
-console.log("🚀 ~ IS_DEV:", IS_DEV);
-
 export const callerApi = createTRPCClient<AppRouter>({
   links: [
     loggerLink({

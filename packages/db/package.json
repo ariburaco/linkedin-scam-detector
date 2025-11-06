@@ -9,6 +9,7 @@
     "db:studio": "bun with-env prisma studio",
     "db:generate": "bun with-env prisma generate",
     "db:migrate": "bun with-env prisma migrate dev",
+    "db:seed": "bun with-env bun src/seed/index.ts",
     "clean": "git clean -xdf .turbo node_modules",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -25,6 +26,7 @@
     "typescript": "catalog:"
   },
   "dependencies": {
+    "@acme/shared": "workspace:*",
     "@prisma/client": "catalog:",
     "dotenv": "catalog:",
     "zod": "catalog:"
