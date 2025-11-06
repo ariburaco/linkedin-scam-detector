@@ -282,8 +282,7 @@ export const scamDetectorRouter = router({
               description: companyData.description || null,
               industry: companyData.industry || null,
               employeeCount: companyData.employeeCount || null,
-              linkedinEmployeeCount:
-                companyData.linkedinEmployeeCount || null,
+              linkedinEmployeeCount: companyData.linkedinEmployeeCount || null,
               followerCount: companyData.followerCount || null,
               rawData: companyData.rawData || null,
             });
@@ -440,24 +439,18 @@ export const scamDetectorRouter = router({
         geminiResult = analysisResult.result;
         costMetadata = analysisResult.costMetadata;
       } catch (error) {
-        console.error("[scamDetectorRouter] AI analysis failed:", error);
-        // Return fallback result instead of throwing
-        return {
-          riskScore: 50,
-          riskLevel: "caution" as const,
-          flags: [
-            {
-              type: "analysis_error",
-              confidence: "low" as const,
-              message:
-                "Unable to complete full analysis. Proceed with caution.",
-              reasoning:
-                "AI service temporarily unavailable. Please verify job details manually.",
-            },
-          ],
-          summary: "Analysis incomplete - use your judgment.",
-          source: "fallback",
-        };
+        logger.error("[scamDetectorRouter] AI analysis failed:", {
+          error: error instanceof Error ? error.message : "Unknown error",
+          jobUrl,
+          title,
+        });
+        // Throw error instead of returning fallback to prevent caching invalid results
+        // This ensures users get fresh analysis on retry instead of cached fallback
+        throw new Error(
+          `AI analysis service unavailable: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
       }
 
       // 4. Save analysis to JobAnalysis (always create new analysis record)

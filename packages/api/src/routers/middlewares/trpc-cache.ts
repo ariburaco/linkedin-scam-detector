@@ -1,3 +1,5 @@
+import { createHash } from "crypto";
+
 import { env } from "@acme/shared/env";
 import { createCacheMiddleware } from "trpc-redis-cache";
 
@@ -41,7 +43,14 @@ export const scanJobCacheMiddleware: any = createCacheMiddleware({
       }
     }
 
-    // Fallback: Use full URL if job ID cannot be extracted
-    return `${path}:${input.jobUrl || "unknown"}`;
+    // Don't cache if job ID cannot be extracted (null cache key would cause collisions)
+    // Return a timestamp-based unique key that ensures no caching (each request is unique)
+    // This effectively disables caching for requests without job IDs
+    const timestamp = Date.now();
+    const urlHash = createHash("sha256")
+      .update(`${input.jobUrl || ""}:${timestamp}`)
+      .digest("hex")
+      .substring(0, 16);
+    return `${path}:no-job-id:${timestamp}:${urlHash}`;
   },
 });
