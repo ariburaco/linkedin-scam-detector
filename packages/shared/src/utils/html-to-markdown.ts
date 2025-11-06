@@ -29,6 +29,9 @@ export function cleanLinkedInHtml(html: string): string {
     allElements.forEach((el: Element) => {
       const text = el.textContent?.trim().toLowerCase() || "";
       if (
+        text === "show more" ||
+        text === "show less" ||
+        text === "show more show less" ||
         text.includes("show more") ||
         text.includes("show less") ||
         text.includes("daha fazla") || // Turkish
@@ -38,14 +41,38 @@ export function cleanLinkedInHtml(html: string): string {
         text.includes("voir plus") || // French
         text.includes("voir moins") // French
       ) {
-        // Only remove if it's a button or span (common patterns)
+        // Remove if it's a button, span, or if the entire text content matches the pattern
         if (
           el.tagName === "BUTTON" ||
           el.tagName === "SPAN" ||
-          el.classList.contains("show-more-less-html__button")
+          el.classList.contains("show-more-less-html__button") ||
+          text === "show more" ||
+          text === "show less" ||
+          text === "show more show less"
         ) {
           el.remove();
         }
+      }
+    });
+
+    // Also remove text nodes that contain "Show more" / "Show less" patterns
+    const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
+    let node: globalThis.Node | null;
+    const nodesToRemove: globalThis.Node[] = [];
+    while ((node = walker.nextNode())) {
+      const text = node.textContent?.trim().toLowerCase() || "";
+      if (
+        text === "show more" ||
+        text === "show less" ||
+        text === "show more show less" ||
+        text.includes("show more show less")
+      ) {
+        nodesToRemove.push(node);
+      }
+    }
+    nodesToRemove.forEach((n) => {
+      if (n.parentNode) {
+        n.parentNode.removeChild(n);
       }
     });
 
@@ -94,6 +121,11 @@ export function cleanLinkedInHtml(html: string): string {
     ""
   );
 
+  // Remove standalone "Show more Show less" text patterns (not in tags)
+  cleaned = cleaned.replace(/\s*show\s+more\s+show\s+less\s*/gi, "");
+  cleaned = cleaned.replace(/\s*show\s+more\s*/gi, "");
+  cleaned = cleaned.replace(/\s*show\s+less\s*/gi, "");
+
   // Strip class attributes
   cleaned = cleaned.replace(/\s*class="[^"]*"/gi, "");
 
@@ -124,20 +156,17 @@ export function convertHtmlToMarkdown(html: string): string {
   });
 
   // Add custom rules for better LinkedIn HTML handling
-  turndownService.addRule("preserveLineBreaks", {
+  // Handle <br> tags - convert to double newlines for proper paragraph breaks
+  turndownService.addRule("lineBreaks", {
     filter: (node: Node) => {
-      const element = node as Element;
-      return (
-        node.nodeName === "BR" ||
-        (node.nodeName === "P" && element.textContent?.trim() === "")
-      );
+      return node.nodeName === "BR";
     },
     replacement: () => {
       return "\n\n";
     },
   });
 
-  // Handle empty paragraphs (just line breaks)
+  // Handle empty paragraphs
   turndownService.addRule("emptyParagraphs", {
     filter: (node: Node) => {
       const element = node as Element;
@@ -156,6 +185,27 @@ export function convertHtmlToMarkdown(html: string): string {
   let markdown = turndownService.turndown(cleanedHtml);
 
   // Post-process cleanup
+  // Remove "Show more" / "Show less" text patterns (case-insensitive, language-agnostic)
+  // Handle various formats: "Show more", "Show more Show less", "Show less", etc.
+  const showMoreLessPatterns = [
+    /\s*show\s+more\s+show\s+less\s*/gi,
+    /\s*show\s+more\s*/gi,
+    /\s*show\s+less\s*/gi,
+    /\s*daha\s+fazla\s+daha\s+az\s*/gi, // Turkish
+    /\s*daha\s+fazla\s*/gi, // Turkish
+    /\s*daha\s+az\s*/gi, // Turkish
+    /\s*mehr\s+anzeigen\s+weniger\s+anzeigen\s*/gi, // German
+    /\s*mehr\s+anzeigen\s*/gi, // German
+    /\s*weniger\s+anzeigen\s*/gi, // German
+    /\s*voir\s+plus\s+voir\s+moins\s*/gi, // French
+    /\s*voir\s+plus\s*/gi, // French
+    /\s*voir\s+moins\s*/gi, // French
+  ];
+
+  for (const pattern of showMoreLessPatterns) {
+    markdown = markdown.replace(pattern, "");
+  }
+
   // Remove excessive blank lines (more than 2 consecutive)
   markdown = markdown.replace(/\n{3,}/g, "\n\n");
 
