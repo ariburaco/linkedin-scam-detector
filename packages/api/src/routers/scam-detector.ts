@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 
+import { Logger } from "@acme/shared/Logger";
 import { z } from "zod";
 
 import { publicProcedure, router } from "../index";
@@ -17,6 +18,8 @@ import { parsePostedDate } from "../utils/date-utils";
 import { extractLinkedInJobId } from "../utils/linkedin-url-parser";
 
 import { scanJobCacheMiddleware } from "./middlewares/trpc-cache";
+
+const logger = new Logger("ScamDetectorRouter");
 
 export const scamDetectorRouter = router({
   // Save job data to database
@@ -385,22 +388,24 @@ export const scamDetectorRouter = router({
     .mutation(async ({ input, ctx }) => {
       const discoveredBy = ctx.session?.user?.id;
 
-      // Fire-and-forget: save jobs but don't expose details to client
+      // Fire-and-forget: trigger workflow to save jobs asynchronously
       try {
-        const results = await DiscoveredJobService.bulkCreateOrUpdate(
-          input.jobs.map((job) => ({
-            ...job,
+        const { workflowId } =
+          await TemporalService.startSaveDiscoveredJobsWorkflow({
+            jobs: input.jobs,
             discoveredBy,
-          }))
-        );
+          });
 
-        // Log results for monitoring
-        console.log(
-          `[discoverJobs] Processed ${input.jobs.length} jobs: ${results.created} created, ${results.updated} updated`
-        );
+        // Log workflow start for monitoring
+        logger.info("Started save discovered jobs workflow", {
+          workflowId,
+          jobCount: input.jobs.length,
+        });
       } catch (error) {
         // Log error but don't fail - discovery is best-effort
-        console.error("[discoverJobs] Failed to save discovered jobs:", error);
+        logger.error("Failed to start save discovered jobs workflow", {
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
       }
 
       // Always return success to client

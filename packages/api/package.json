@@ -13,6 +13,7 @@
     "./services/job-extraction.service": "./src/services/job-extraction.service.ts",
     "./services/job-search.service": "./src/services/job-search.service.ts",
     "./services/feedback.service": "./src/services/feedback.service.ts",
+    "./services/discovered-job.service": "./src/services/discovered-job.service.ts",
     "./schemas/job-extraction": "./src/schemas/job-extraction.ts"
   },
   "type": "module",

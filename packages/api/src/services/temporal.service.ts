@@ -137,6 +137,63 @@ export class TemporalService {
   }
 
   /**
+   * Start Save Discovered Jobs workflow
+   */
+  static async startSaveDiscoveredJobsWorkflow(params: {
+    jobs: Array<{
+      linkedinJobId: string;
+      url: string;
+      title: string;
+      company: string;
+      location?: string;
+      employmentType?: string;
+      workType?: string;
+      isPromoted?: boolean;
+      isEasyApply?: boolean;
+      hasVerified?: boolean;
+      insight?: string;
+      postedDate?: string;
+      companyLogoUrl?: string;
+      discoverySource: string;
+      discoveryUrl?: string;
+      rawData?: Record<string, unknown>;
+    }>;
+    discoveredBy?: string;
+  }): Promise<{
+    workflowId: string;
+    runId: string;
+  }> {
+    const client = await this.getClient();
+    const workflowId = `save-discovered-jobs-${Date.now()}`;
+
+    logger.info("Starting save discovered jobs workflow", {
+      workflowId,
+      jobCount: params.jobs.length,
+    });
+
+    const handle = await client.workflow.start("SaveDiscoveredJobs", {
+      taskQueue: env.TEMPORAL_TASK_QUEUE,
+      workflowId,
+      args: [
+        {
+          jobs: params.jobs,
+          discoveredBy: params.discoveredBy,
+        },
+      ],
+    });
+
+    logger.info("Save discovered jobs workflow started", {
+      workflowId: handle.workflowId,
+      runId: handle.firstExecutionRunId,
+    });
+
+    return {
+      workflowId: handle.workflowId,
+      runId: handle.firstExecutionRunId,
+    };
+  }
+
+  /**
    * Get workflow status with enhanced error details
    */
   static async getWorkflowStatus(workflowId: string): Promise<{
