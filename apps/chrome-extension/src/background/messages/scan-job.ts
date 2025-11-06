@@ -6,7 +6,6 @@ import {
   incrementScannedToday,
   incrementThreatsBlocked,
 } from "@/lib/utils/stats";
-import { getSession } from "@/shared/sessionManager";
 import { callerApi } from "@/trpc/caller";
 
 export interface ScanJobRequestBody {
@@ -92,18 +91,15 @@ const handler: PlasmoMessaging.MessageHandler<
       console.error("[scan-job] Failed to track scan:", err);
     });
 
-    // Step 2.5: Save job data to database first
-    // Get session to pass to saveJob (if authenticated)
-    const session = await getSession().catch(() => null);
-    
-    // Save job to database
-    callerApi.scamDetector.saveJob
+    // Step 3: Run full AI analysis with job saving and extraction handled internally
+    // Send final result via chrome.tabs.sendMessage to the content script
+    callerApi.scamDetector.scanJob
       .mutate({
-        linkedinJobId: jobData.linkedinJobId,
-        url: jobUrl,
+        jobText: jobData.description || "",
+        jobUrl,
+        companyName: jobData.company,
         title: jobData.title,
-        company: jobData.company || "",
-        description: jobData.description || "",
+        linkedinJobId: jobData.linkedinJobId,
         location: jobData.location,
         salary: jobData.salary,
         employmentType: jobData.employmentType,
@@ -112,35 +108,6 @@ const handler: PlasmoMessaging.MessageHandler<
           // Store any additional fields in rawData
           linkedinJobId: jobData.linkedinJobId,
         },
-      })
-      .then(async (saveResult) => {
-        // After saving job, extract structured data using AI
-        if (saveResult.jobId) {
-          callerApi.scamDetector.extractJobData
-            .mutate({
-              jobId: saveResult.jobId,
-              jobText: jobData.description || "",
-              jobTitle: jobData.title,
-              companyName: jobData.company,
-            })
-            .catch((extractError) => {
-              // Log but don't fail if extraction fails
-              console.error("[scan-job] Job extraction failed:", extractError);
-            });
-        }
-      })
-      .catch((saveError) => {
-        // Log but don't fail if save fails
-        console.error("[scan-job] Failed to save job:", saveError);
-      });
-
-    // Step 3: Run full AI analysis asynchronously (don't await in handler)
-    // Send final result via chrome.tabs.sendMessage to the content script
-    callerApi.scamDetector.scanJob
-      .mutate({
-        jobText: jobData.description || "",
-        jobUrl,
-        companyName: jobData.company,
       })
       .then((geminiResult) => {
         // Get the sender tab ID from the request

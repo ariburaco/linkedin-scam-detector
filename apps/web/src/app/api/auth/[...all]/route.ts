@@ -1,7 +1,7 @@
 import { auth } from "@acme/auth";
+import { env } from "@acme/shared/env";
 import { toNextJsHandler } from "better-auth/next-js";
 import { NextRequest, NextResponse } from "next/server";
-import { env } from "@acme/shared/env";
 
 function getCorsHeaders(origin: string | null) {
   const headers = new Headers();
@@ -31,7 +31,7 @@ const { GET: authGet, POST: authPost } = toNextJsHandler(auth.handler);
 
 async function handleRequest(
   req: NextRequest,
-  handler: (req: NextRequest) => Promise<NextResponse>
+  handler: (req: NextRequest) => Promise<Response>
 ) {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
@@ -46,12 +46,21 @@ async function handleRequest(
 
   const response = await handler(req);
 
-  // Add CORS headers to the response
+  // Convert Response to NextResponse
+  // Clone headers and merge with CORS headers
+  const mergedHeaders = new Headers(response.headers);
   corsHeaders.forEach((value, key) => {
-    response.headers.set(key, value);
+    mergedHeaders.set(key, value);
   });
 
-  return response;
+  // Create NextResponse with the response body and merged headers
+  const nextResponse = new NextResponse(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: mergedHeaders,
+  });
+
+  return nextResponse;
 }
 
 export async function GET(req: NextRequest) {

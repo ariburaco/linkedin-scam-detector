@@ -93,7 +93,7 @@ export const scamDetectorRouter = router({
         );
       }
 
-      return { jobId: job.id, success: true, workflowId };
+      return { jobId: job.id, workflowId };
     }),
 
   // Extract structured job data using AI
@@ -146,7 +146,7 @@ export const scamDetectorRouter = router({
         );
       }
 
-      return { success: true, workflowId, jobId };
+      return { jobId, workflowId };
     }),
 
   // Search jobs using semantic similarity
@@ -171,18 +171,106 @@ export const scamDetectorRouter = router({
         jobText: z.string().min(10),
         jobUrl: z.string().url(),
         companyName: z.string().optional(),
+        // Additional fields for job saving
+        title: z.string().min(1),
+        linkedinJobId: z.string().optional(),
+        location: z.string().optional(),
+        salary: z.string().optional(),
+        employmentType: z.string().optional(),
+        postedDate: z.string().optional(),
+        rawData: z.record(z.any(), z.any()).optional(),
       })
     )
     .use(scanJobCacheMiddleware)
-    .mutation(async ({ input }) => {
-      const { jobText, jobUrl, companyName } = input;
+    .mutation(async ({ input, ctx }) => {
+      const {
+        jobText,
+        jobUrl,
+        companyName,
+        title,
+        linkedinJobId,
+        location,
+        salary,
+        employmentType,
+        postedDate,
+        rawData,
+      } = input;
 
       // 1. Generate URL hash
       const jobUrlHash = createHash("sha256").update(jobUrl).digest("hex");
 
-      // 2. Check if job exists and has recent analysis (tRPC middleware handles Redis caching)
-      // Try to find job first
-      const job = await JobService.findLatestByUrlHash(jobUrlHash);
+      // 2. Save/update job data (fire-and-forget, don't block on errors)
+      let savedJob: { id: string } | null = null;
+      try {
+        // Extract LinkedIn job ID from URL if not provided
+        const extractedJobId =
+          linkedinJobId || extractLinkedInJobId(jobUrl) || null;
+
+        // Parse posted date if provided
+        const postedAt = parsePostedDate(postedDate);
+
+        // Get user ID from session if available
+        const scrapedBy = ctx.session?.user?.id || null;
+
+        // Create or update job using service
+        const job = await JobService.createOrUpdate({
+          linkedinJobId: extractedJobId,
+          jobUrlHash,
+          url: jobUrl,
+          title,
+          company: companyName || "",
+          description: jobText,
+          location: location || null,
+          salary: salary || null,
+          employmentType: employmentType || null,
+          postedAt,
+          scrapedBy,
+          rawData: rawData || null,
+        });
+        savedJob = { id: job.id };
+
+        // Trigger embedding workflow if needed (fire-and-forget)
+        const hasExistingEmbedding = await JobService.hasEmbedding(job.id);
+        if (!hasExistingEmbedding) {
+          TemporalService.startJobEmbeddingWorkflow({
+            jobId: job.id,
+            title,
+            company: companyName || "",
+            description: jobText,
+          }).catch((error) => {
+            // Log but don't fail - embedding is optional enhancement
+            console.error(
+              "[scanJob] Failed to start embedding workflow:",
+              error instanceof Error ? error.message : "Unknown error"
+            );
+          });
+        }
+
+        // Trigger extraction workflow if needed (fire-and-forget)
+        const hasExistingExtraction = await JobExtractionService.hasExtraction(
+          job.id
+        );
+        if (!hasExistingExtraction) {
+          TemporalService.startJobExtractionWorkflow({
+            jobId: job.id,
+            jobText,
+            jobTitle: title,
+            companyName: companyName || "",
+          }).catch((error) => {
+            // Log but don't fail - extraction is optional enhancement
+            console.error(
+              "[scanJob] Failed to start extraction workflow:",
+              error instanceof Error ? error.message : "Unknown error"
+            );
+          });
+        }
+      } catch (error) {
+        // Log but don't fail the request if job save fails
+        console.error(
+          "[scanJob] Failed to save job:",
+          error instanceof Error ? error.message : "Unknown error"
+        );
+      }
 
       // 3. Call Gemini 2.0 Flash via AI Service
       let geminiResult: ScamAnalysisResult;
@@ -217,11 +305,11 @@ export const scamDetectorRouter = router({
       }
 
       // 4. Save analysis to JobAnalysis (always create new analysis record)
-      // If job exists, link it; if not, we still track the scan by URL hash
-      if (job) {
+      // If job was saved, link it; if not, we still track the scan by URL hash
+      if (savedJob) {
         try {
           await JobAnalysisService.create({
-            jobId: job.id,
+            jobId: savedJob.id,
             riskScore: geminiResult.riskScore,
             riskLevel: geminiResult.riskLevel,
             flags: geminiResult.flags,
@@ -242,7 +330,7 @@ export const scamDetectorRouter = router({
         }
       }
 
-      // 6. Return result
+      // 5. Return only scan analysis results (no jobId, workflowIds, etc.)
       return {
         ...geminiResult,
         source: "gemini",

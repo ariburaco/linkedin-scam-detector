@@ -137,28 +137,87 @@ export class TemporalService {
   }
 
   /**
-   * Get workflow status
+   * Get workflow status with enhanced error details
    */
   static async getWorkflowStatus(workflowId: string): Promise<{
     workflowId: string;
     runId: string;
     status: string;
+    workflowType?: string;
     result?: unknown;
+    error?: {
+      message: string;
+      stackTrace?: string;
+      cause?: string;
+    };
   }> {
     const client = await this.getClient();
     const handle = client.workflow.getHandle(workflowId);
 
     const description = await handle.describe();
 
-    return {
+    logger.info("Workflow status retrieved", {
+      workflowId: handle.workflowId,
+      status: description.status.name,
+      workflowType: description.type,
+    });
+
+    // Build response
+    const response: {
+      workflowId: string;
+      runId: string;
+      status: string;
+      workflowType?: string;
+      result?: unknown;
+      error?: {
+        message: string;
+        stackTrace?: string;
+        cause?: string;
+      };
+    } = {
       workflowId: handle.workflowId,
       runId: description.runId,
       status: description.status.name,
-      result:
-        description.status.name === "COMPLETED"
-          ? await handle.result()
-          : undefined,
+      workflowType: description.type,
     };
+
+    // Handle completed workflows
+    if (description.status.name === "COMPLETED") {
+      try {
+        response.result = await handle.result();
+      } catch (error) {
+        // Should not happen for completed workflows, but catch just in case
+        logger.error("Failed to get result for completed workflow", {
+          workflowId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    // Handle failed workflows - extract error details
+    if (description.status.name === "FAILED") {
+      try {
+        await handle.result();
+      } catch (error) {
+        logger.error("Workflow failed with error", {
+          workflowId,
+          workflowType: description.type,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+
+        response.error = {
+          message: error instanceof Error ? error.message : String(error),
+          stackTrace:
+            error instanceof Error && error.stack ? error.stack : undefined,
+          cause:
+            error instanceof Error && error.cause
+              ? String(error.cause)
+              : undefined,
+        };
+      }
+    }
+
+    return response;
   }
 
   /**
