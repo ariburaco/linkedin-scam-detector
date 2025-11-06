@@ -1,0 +1,37 @@
+# Temporal Dynamic Configuration for Development
+# This file configures Temporal server runtime parameters
+# Reference: https://docs.temporal.io/server/development-environment
+
+# Frontend settings
+frontend.enableUpdateWorkflowExecution:
+  - value: true
+    constraints: {}
+
+frontend.enableUpdateWorkflowExecutionAsyncAccepted:
+  - value: true
+    constraints: {}
+
+# History settings - relaxed limits for development
+history.maxAutoResetPoints:
+  - value: 20
+    constraints: {}
+
+history.enableTaskInfoLogByDomain:
+  - value: true
+    constraints: {}
+
+# Matching settings - allow larger task lists for development
+matching.maxTaskBatchingSize:
+  - value: 100
+    constraints: {}
+
+# System settings
+system.enableNamespaceNotActiveAutoForwarding:
+  - value: true
+    constraints: {}
+
+# Enable debug logging for development
+system.enableDebugMode:
+  - value: true
+    constraints: {}
+

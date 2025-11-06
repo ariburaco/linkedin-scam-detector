@@ -1,17 +1,17 @@
 model Job {
-  id             String    @id @default(cuid())
-  linkedinJobId  String?   @unique @db.VarChar(100)
-  jobUrlHash     String    @db.VarChar(64)
-  url            String    @db.Text
-  title          String    @db.VarChar(500)
-  company        String    @db.VarChar(500)
-  description    String    @db.Text
-  location       String?   @db.VarChar(500)
-  salary         String?   @db.VarChar(200)
-  employmentType String?   @db.VarChar(100)
+  id             String                      @id @default(cuid())
+  linkedinJobId  String?                     @unique @db.VarChar(100)
+  jobUrlHash     String                      @db.VarChar(64)
+  url            String                      @db.Text
+  title          String                      @db.VarChar(500)
+  company        String                      @db.VarChar(500)
+  description    String                      @db.Text
+  location       String?                     @db.VarChar(500)
+  salary         String?                     @db.VarChar(200)
+  employmentType String?                     @db.VarChar(100)
   postedAt       DateTime?
-  scrapedAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  scrapedAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
   scrapedBy      String? // User ID who scraped this job (nullable for anonymous scrapes)
   rawData        Json? // Store any additional scraped data not in structured fields
   embedding      Unsupported("vector(768)")? // Vector embedding for semantic search (Gemini embedding-004)

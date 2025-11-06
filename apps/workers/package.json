@@ -1,0 +1,38 @@
+{
+  "name": "@acme/workers",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun with-env -- tsx watch src/worker.ts",
+    "start": "bun with-env -- tsx src/worker.ts",
+    "build": "echo 'No build script'",
+    "schedules:setup": "bun with-env tsx src/schedules.ts setup",
+    "schedules:list": "bun with-env tsx src/schedules.ts list",
+    "schedules:pause": "bun with-env tsx src/schedules.ts pause",
+    "schedules:unpause": "bun with-env tsx src/schedules.ts unpause",
+    "schedules:delete": "bun with-env tsx src/schedules.ts delete",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path ../../.prettierignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path ../../.prettierignore",
+    "with-env": "dotenv -e ../../.env --"
+  },
+  "dependencies": {
+    "@acme/api": "workspace:*",
+    "@acme/db": "workspace:*",
+    "@acme/shared": "workspace:*",
+    "@temporalio/activity": "catalog:",
+    "@temporalio/client": "catalog:",
+    "@temporalio/worker": "catalog:",
+    "@temporalio/workflow": "catalog:"
+  },
+  "devDependencies": {
+    "@acme/config-eslint-prettier": "workspace:*",
+    "@types/node": "^22.13.11",
+    "typescript": "catalog:",
+    "dotenv-cli": "catalog:",
+    "tsx": "^4.19.2"
+  }
+}

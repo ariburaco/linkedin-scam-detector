@@ -39,26 +39,26 @@ const initSessionManager = async () => {
   }
 };
 
-// Initialize on service worker startup
-initSessionManager();
+// // Initialize on service worker startup
+// initSessionManager();
 
-// Reinitialize on extension startup (browser restart)
-chrome.runtime.onStartup.addListener(() => {
-  extensionLoggerBackground.info(
-    "Extension startup detected, reinitializing session manager"
-  );
-  initSessionManager();
-});
+// // Reinitialize on extension startup (browser restart)
+// chrome.runtime.onStartup.addListener(() => {
+//   extensionLoggerBackground.info(
+//     "Extension startup detected, reinitializing session manager"
+//   );
+//   initSessionManager();
+// });
 
-// Reinitialize on extension installation/update
-chrome.runtime.onInstalled.addListener((details) => {
-  extensionLoggerBackground.info(
-    "Extension installed/updated:",
-    details.reason
-  );
-  if (details.reason === "install" || details.reason === "update") {
-    initSessionManager();
-  }
-});
+// // Reinitialize on extension installation/update
+// chrome.runtime.onInstalled.addListener((details) => {
+//   extensionLoggerBackground.info(
+//     "Extension installed/updated:",
+//     details.reason
+//   );
+//   if (details.reason === "install" || details.reason === "update") {
+//     initSessionManager();
+//   }
+// });
 
 export {};

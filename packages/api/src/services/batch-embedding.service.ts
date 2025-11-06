@@ -1,6 +1,6 @@
 import prisma from "@acme/db";
 
-import { embeddingService } from "./embedding-service";
+import { embeddingService } from "./embedding.service";
 
 /**
  * Batch Embedding Service

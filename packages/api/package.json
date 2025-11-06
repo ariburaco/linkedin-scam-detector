@@ -3,7 +3,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./routers": "./src/routers/index.ts",
-    "./context": "./src/context.ts"
+    "./context": "./src/context.ts",
+    "./services/embedding.service": "./src/services/embedding.service.ts",
+    "./services/ai.service": "./src/services/ai.service.ts",
+    "./services/batch-embedding.service": "./src/services/batch-embedding.service.ts",
+    "./services/temporal.service": "./src/services/temporal.service.ts",
+    "./schemas/job-extraction": "./src/schemas/job-extraction.ts"
   },
   "type": "module",
   "scripts": {
@@ -25,6 +30,7 @@
     "@acme/db": "workspace:*",
     "@ai-sdk/google": "^2.0.28",
     "@google/generative-ai": "^0.24.1",
+    "@temporalio/client": "catalog:",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "ai": "^5.0.87",

@@ -23,6 +23,11 @@ export const env = createEnv({
     // Google AI (Gemini)
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
 
+    // Temporal
+    TEMPORAL_ADDRESS: z.string().url().default("http://localhost:7234"),
+    TEMPORAL_NAMESPACE: z.string().default("default"),
+    TEMPORAL_TASK_QUEUE: z.string().default("linkedin-scam-detector-tasks"),
+
     // Node Environment
     NODE_ENV: z
       .enum(["development", "production", "test"])

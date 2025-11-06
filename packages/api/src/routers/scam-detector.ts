@@ -4,39 +4,13 @@ import prisma from "@acme/db";
 import { z } from "zod";
 
 import { publicProcedure, router } from "../index";
-import { aiService } from "../services/ai-service";
-import { batchEmbeddingService } from "../services/batch-embedding-service";
-import { embeddingService } from "../services/embedding-service";
+import { aiService } from "../services/ai.service";
+import { batchEmbeddingService } from "../services/batch-embedding.service";
+import { embeddingService } from "../services/embedding.service";
+import { TemporalService } from "../services/temporal.service";
+import { parsePostedDate } from "../utils/date-utils";
 
 import { scanJobCacheMiddleware } from "./middlewares/trpc-cache";
-
-/**
- * Helper to parse posted date string to DateTime
- */
-function parsePostedDate(dateString?: string): Date | null {
-  if (!dateString) return null;
-
-  // Try to parse relative dates like "Posted 2 days ago"
-  const match = dateString.match(
-    /(\d+)\s+(day|days|week|weeks|month|months)\s+ago/i
-  );
-  if (match) {
-    const amount = parseInt(match[1] || "0", 10);
-    const unit = match[2]?.toLowerCase() || "";
-
-    const now = new Date();
-    if (unit.startsWith("day")) {
-      now.setDate(now.getDate() - amount);
-    } else if (unit.startsWith("week")) {
-      now.setDate(now.getDate() - amount * 7);
-    } else if (unit.startsWith("month")) {
-      now.setMonth(now.getMonth() - amount);
-    }
-    return now;
-  }
-
-  return null;
-}
 
 export const scamDetectorRouter = router({
   // Save job data to database
@@ -76,19 +50,6 @@ export const scamDetectorRouter = router({
             where: { jobUrlHash },
           });
 
-      // Generate embedding for the job (async, don't block)
-      let embeddingPromise: Promise<number[]> | null = null;
-      try {
-        embeddingPromise = embeddingService.embedJob({
-          title: jobData.title,
-          company: jobData.company,
-          description: jobData.description,
-        });
-      } catch (error) {
-        console.error("[saveJob] Failed to generate embedding:", error);
-        // Continue without embedding - it's optional
-      }
-
       let job;
       if (existingJob) {
         // Update existing job
@@ -102,23 +63,6 @@ export const scamDetectorRouter = router({
             input.rawData || (existingJob.rawData as Record<string, unknown>),
           scrapedBy: scrapedBy || existingJob.scrapedBy,
         };
-
-        // If embedding was generated, add it (using raw SQL since Prisma doesn't support vector type directly)
-        if (embeddingPromise) {
-          try {
-            const embedding = await embeddingPromise;
-            // Format embedding as PostgreSQL vector: '[1,2,3,...]'
-            const vectorString = `[${embedding.join(",")}]`;
-            // Update embedding using raw SQL
-            await prisma.$executeRawUnsafe(
-              `UPDATE scam_detector_job SET embedding = $1::vector WHERE id = $2`,
-              vectorString,
-              existingJob.id
-            );
-          } catch (error) {
-            console.error("[saveJob] Failed to update embedding:", error);
-          }
-        }
 
         job = await prisma.job.update({
           where: { id: existingJob.id },
@@ -139,24 +83,27 @@ export const scamDetectorRouter = router({
         job = await prisma.job.create({
           data: createData,
         });
-
-        // If embedding was generated, add it using raw SQL
-        if (embeddingPromise) {
-          try {
-            const embedding = await embeddingPromise;
-            const vectorString = `[${embedding.join(",")}]`;
-            await prisma.$executeRawUnsafe(
-              `UPDATE scam_detector_job SET embedding = $1::vector WHERE id = $2`,
-              vectorString,
-              job.id
-            );
-          } catch (error) {
-            console.error("[saveJob] Failed to set embedding:", error);
-          }
-        }
       }
 
-      return { jobId: job.id, success: true };
+      // Trigger async embedding generation workflow (fire-and-forget)
+      let workflowId: string | undefined;
+      try {
+        const workflowResult = await TemporalService.startJobEmbeddingWorkflow({
+          jobId: job.id,
+          title: jobData.title,
+          company: jobData.company,
+          description: jobData.description,
+        });
+        workflowId = workflowResult.workflowId;
+      } catch (error) {
+        // Log but don't fail - embedding is optional enhancement
+        console.error(
+          "[saveJob] Failed to start embedding workflow:",
+          error instanceof Error ? error.message : "Unknown error"
+        );
+      }
+
+      return { jobId: job.id, success: true, workflowId };
     }),
 
   // Extract structured job data using AI
@@ -181,64 +128,28 @@ export const scamDetectorRouter = router({
         throw new Error("Job not found");
       }
 
-      // Extract structured data using AI
-      let extractionResult;
+      // Trigger async extraction workflow (fire-and-forget)
+      let workflowId: string | undefined;
       try {
-        extractionResult = await aiService.extractJobData({
-          jobText,
-          jobTitle: jobTitle || job.title,
-          companyName: companyName || job.company,
-        });
-      } catch (error) {
-        console.error("[scamDetectorRouter] Job extraction failed:", error);
-        throw new Error(
-          `Failed to extract job data: ${error instanceof Error ? error.message : "Unknown error"}`
+        const workflowResult = await TemporalService.startJobExtractionWorkflow(
+          {
+            jobId,
+            jobText,
+            jobTitle: jobTitle || job.title,
+            companyName: companyName || job.company,
+          }
         );
-      }
-
-      // Generate structured embedding for the extracted data
-      let structuredEmbeddingPromise: Promise<number[]> | null = null;
-      try {
-        structuredEmbeddingPromise =
-          embeddingService.embedStructuredData(extractionResult);
+        workflowId = workflowResult.workflowId;
       } catch (error) {
+        // Log but don't fail - extraction is optional enhancement
         console.error(
-          "[extractJobData] Failed to generate structured embedding:",
-          error
+          "[extractJobData] Failed to start extraction workflow:",
+          error instanceof Error ? error.message : "Unknown error"
         );
-        // Continue without embedding - it's optional
+        // Still return success since workflow start failure shouldn't break the API
       }
 
-      // Save extraction to database
-      const extraction = await prisma.jobExtraction.create({
-        data: {
-          jobId,
-          ...extractionResult,
-          extractedData: extractionResult, // Store full result for flexibility
-          extractionModel: "gemini-2.0-flash-exp",
-          extractionSource: "gemini",
-        },
-      });
-
-      // If structured embedding was generated, add it using raw SQL
-      if (structuredEmbeddingPromise) {
-        try {
-          const embedding = await structuredEmbeddingPromise;
-          const vectorString = `[${embedding.join(",")}]`;
-          await prisma.$executeRawUnsafe(
-            `UPDATE scam_detector_job_extraction SET structured_embedding = $1::vector WHERE id = $2`,
-            vectorString,
-            extraction.id
-          );
-        } catch (error) {
-          console.error(
-            "[extractJobData] Failed to set structured embedding:",
-            error
-          );
-        }
-      }
-
-      return { extractionId: extraction.id, ...extractionResult };
+      return { success: true, workflowId, jobId };
     }),
 
   // Search jobs using semantic similarity
@@ -481,5 +392,29 @@ export const scamDetectorRouter = router({
         });
 
       return result;
+    }),
+
+  // Get workflow status (for checking async operation progress)
+  getWorkflowStatus: publicProcedure
+    .input(
+      z.object({
+        workflowId: z.string().min(1),
+      })
+    )
+    .query(async ({ input }) => {
+      try {
+        const status = await TemporalService.getWorkflowStatus(
+          input.workflowId
+        );
+        return status;
+      } catch (error) {
+        console.error(
+          "[getWorkflowStatus] Failed to get workflow status:",
+          error instanceof Error ? error.message : "Unknown error"
+        );
+        throw new Error(
+          `Failed to get workflow status: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+      }
     }),
 });

@@ -1,0 +1,223 @@
+name: acme
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.0-pg17-bookworm
+    container_name: acme-postgres
+    environment:
+      POSTGRES_DB: acme
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5412:5432"
+    volumes:
+      - acme_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - acme
+
+  redis:
+    image: redis:7-alpine
+    container_name: acme-redis
+    ports:
+      - "6385:6379"
+    volumes:
+      - acme_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    networks:
+      - acme
+
+  # =====================================================
+  # Postgres Init (create temporal database)
+  # =====================================================
+  postgres-init:
+    image: pgvector/pgvector:0.8.0-pg17-bookworm
+    container_name: acme-postgres-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: password
+      PGDATABASE: postgres
+    command:
+      - /bin/bash
+      - -c
+      - |
+        psql -h postgres -U postgres -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'temporal'" | grep -q 1 || psql -h postgres -U postgres -d postgres -c "CREATE DATABASE temporal"
+        echo "Temporal database ready"
+    restart: "no"
+    networks:
+      - acme
+
+  # =====================================================
+  # Temporal Server (with auto-setup)
+  # =====================================================
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: acme-temporal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
+    environment:
+      - DB=postgres12_pgx
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=password
+      - POSTGRES_SEEDS=postgres
+      - POSTGRES_DB=temporal
+      - SKIP_DEFAULT_NAMESPACE_CREATION=true
+    ports:
+      - "7234:7233" # gRPC
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "tctl --address 127.0.0.1:7233 cluster health 2>/dev/null | grep -q SERVING || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - acme
+
+  # =====================================================
+  # Temporal Web UI
+  # =====================================================
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: acme-temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+    networks:
+      - acme
+
+  # =====================================================
+  # Temporal Admin Tools (create namespaces on startup)
+  # =====================================================
+  temporal-admin-tools:
+    image: temporalio/admin-tools:latest
+    container_name: acme-temporal-admin
+    depends_on:
+      temporal:
+        condition: service_started
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo 'Initializing Temporal namespaces...';
+
+        # Wait for Temporal gRPC to be ready (up to 60 seconds)
+        echo 'Waiting for Temporal server to be ready...';
+        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+          if tctl --address temporal:7233 cluster health 2>/dev/null | grep -q 'SERVING'; then
+            echo 'Temporal server is ready!';
+            break;
+          fi
+          echo "Attempt $i/30: Waiting for Temporal...";
+          sleep 2;
+        done;
+
+        # Additional small wait to ensure fully ready
+        sleep 2;
+
+        echo 'Checking default namespace...';
+        if tctl --address temporal:7233 namespace describe default 2>/dev/null >/dev/null 2>&1; then
+          echo 'Default namespace already exists';
+        else
+          echo 'Creating default namespace...';
+          tctl --address temporal:7233 namespace register --retention 30 --description 'Main workflow namespace' default || echo 'Note: Default namespace creation returned non-zero (may already exist)';
+        fi;
+
+        echo 'Checking scheduled namespace...';
+        if tctl --address temporal:7233 namespace describe scheduled 2>/dev/null >/dev/null 2>&1; then
+          echo 'Scheduled namespace already exists';
+        else
+          echo 'Creating scheduled namespace...';
+          tctl --address temporal:7233 namespace register --retention 30 --description 'Namespace for scheduled/CRON workflows' scheduled || echo 'Note: Scheduled namespace creation returned non-zero (may already exist)';
+        fi;
+
+        echo 'Namespaces initialized successfully';
+        exit 0;
+    restart: "no"
+    networks:
+      - acme
+
+  # =====================================================
+  # MinIO Object Storage (for snapshots)
+  # =====================================================
+  minio:
+    image: minio/minio:latest
+    container_name: acme-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9002:9000" # API
+      - "9003:9001" # Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - acme
+
+  # =====================================================
+  # MinIO Client (create buckets on startup)
+  # =====================================================
+  minio-init:
+    image: minio/mc:latest
+    container_name: acme-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb myminio/linkedin-scam-detector-snapshots || true;
+      mc anonymous set download myminio/linkedin-scam-detector-snapshots;
+      echo 'MinIO bucket initialized: linkedin-scam-detector-snapshots';
+      exit 0;
+      "
+    restart: "no"
+    networks:
+      - acme
+
+networks:
+  acme:
+    driver: bridge
+
+volumes:
+  acme_postgres_data:
+  acme_redis_data:
+  minio_data:
