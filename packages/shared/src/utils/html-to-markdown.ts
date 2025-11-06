@@ -184,9 +184,8 @@ export function convertHtmlToMarkdown(html: string): string {
   // Convert HTML to Markdown
   let markdown = turndownService.turndown(cleanedHtml);
 
-  // Post-process cleanup
+  // Post-process cleanup and formatting improvements
   // Remove "Show more" / "Show less" text patterns (case-insensitive, language-agnostic)
-  // Handle various formats: "Show more", "Show more Show less", "Show less", etc.
   const showMoreLessPatterns = [
     /\s*show\s+more\s+show\s+less\s*/gi,
     /\s*show\s+more\s*/gi,
@@ -206,11 +205,47 @@ export function convertHtmlToMarkdown(html: string): string {
     markdown = markdown.replace(pattern, "");
   }
 
-  // Remove excessive blank lines (more than 2 consecutive)
+  // Convert common section headers (bold text at start of line) to markdown headings
+  // Pattern: **Text** or **Text:** at start of line (standalone) -> ## Text
+  // Only convert if it's a standalone line (not part of a paragraph)
+  // Examples: "**Responsibilities**" -> "## Responsibilities"
+  //           "**We are looking for…**" -> "## We are looking for…"
+  markdown = markdown.replace(/^\*\*([^*]+?):?\*\*\s*$/gm, "## $1");
+
+  // Normalize line endings (ensure consistent \n)
+  markdown = markdown.replace(/\r\n/g, "\n");
+  markdown = markdown.replace(/\r/g, "\n");
+
+  // Remove excessive whitespace (more than 2 spaces) - but preserve intentional spacing
+  // Only collapse spaces within lines, not line breaks
+  markdown = markdown.replace(/[ \t]{3,}/g, "  ");
+
+  // Ensure proper spacing around lists
+  // Add blank line before lists if missing (but not if already preceded by blank line or heading)
+  markdown = markdown.replace(/([^\n#])\n([-*+] )/g, "$1\n\n$2");
+  markdown = markdown.replace(/([^\n#])\n(\d+\. )/g, "$1\n\n$2");
+
+  // Ensure proper spacing after lists (but not if followed by another list item, blank line, or heading)
+  markdown = markdown.replace(/([-*+] .+)\n([^\n-*+\d#\s])/g, "$1\n\n$2");
+  markdown = markdown.replace(/(\d+\. .+)\n([^\n-*+\d#\s])/g, "$1\n\n$2");
+
+  // Ensure proper spacing around headings
+  markdown = markdown.replace(/([^\n#])\n(#{1,6} )/g, "$1\n\n$2");
+  markdown = markdown.replace(/(#{1,6} .+)\n([^\n#])/g, "$1\n\n$2");
+
+  // Clean up multiple consecutive blank lines (more than 2)
   markdown = markdown.replace(/\n{3,}/g, "\n\n");
 
-  // Clean up trailing whitespace
+  // Remove trailing whitespace from each line
+  markdown = markdown.replace(/[ \t]+$/gm, "");
+
+  // Clean up leading/trailing whitespace from entire document
   markdown = markdown.trim();
+
+  // Ensure document ends with a single newline
+  if (markdown && !markdown.endsWith("\n")) {
+    markdown += "\n";
+  }
 
   return markdown;
 }
