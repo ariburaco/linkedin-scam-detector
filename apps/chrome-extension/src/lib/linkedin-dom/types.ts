@@ -15,3 +15,21 @@ export interface JobElement {
   data: JobData;
   badgeContainer?: HTMLElement;
 }
+
+export interface DiscoveredJobData {
+  linkedinJobId: string;
+  url: string;
+  title: string;
+  company: string;
+  location?: string;
+  employmentType?: string;
+  workType?: string; // Remote, Hybrid, On-site
+  isPromoted?: boolean;
+  isEasyApply?: boolean;
+  hasVerified?: boolean;
+  insight?: string;
+  postedDate?: string;
+  companyLogoUrl?: string;
+  discoverySource: string; // "search", "recommended", etc.
+  discoveryUrl: string;
+}

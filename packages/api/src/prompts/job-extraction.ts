@@ -56,6 +56,19 @@ Please extract the following information:
 10. **Work Schedule**: Extract the work schedule type
     - Options: full-time, part-time, contract, temporary, internship
 
+11. **Agency Detection**: Determine if this job posting is from a recruitment agency or staffing firm
+    - Set to true if the posting indicates it's from a recruitment agency, staffing firm, or third-party recruiter
+    - Look for indicators such as:
+      - "on behalf of" (e.g., "We are hiring on behalf of...")
+      - "recruiting for" (e.g., "We are recruiting for our client...")
+      - "hiring on behalf of"
+      - "our client" (when referring to the actual employer)
+      - "representing" (e.g., "We are representing a leading company...")
+      - Mentions of recruitment agencies, staffing firms, or third-party recruiters
+      - Language suggesting the poster is not the direct employer
+    - Set to false if the posting is clearly from the company directly
+    - Leave undefined if it's unclear or cannot be determined
+
 Be thorough and extract all available information. If information is not available, leave the field null or empty array.
 Focus on extracting concrete, structured data that would be useful for job search filters and matching algorithms.
 `;

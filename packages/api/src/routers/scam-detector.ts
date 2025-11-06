@@ -6,6 +6,7 @@ import { publicProcedure, router } from "../index";
 import type { ScamAnalysisResult } from "../schemas/scam-analysis";
 import { aiService } from "../services/ai.service";
 import { batchEmbeddingService } from "../services/batch-embedding.service";
+import { DiscoveredJobService } from "../services/discovered-job.service";
 import { FeedbackService } from "../services/feedback.service";
 import { JobAnalysisService } from "../services/job-analysis.service";
 import { JobExtractionService } from "../services/job-extraction.service";
@@ -353,6 +354,91 @@ export const scamDetectorRouter = router({
         details: input.details || null,
       });
 
+      return { success: true };
+    }),
+
+  // Discover jobs from LinkedIn search/collection pages
+  discoverJobs: publicProcedure
+    .input(
+      z.object({
+        jobs: z.array(
+          z.object({
+            linkedinJobId: z.string(),
+            url: z.string().url(),
+            title: z.string().min(1),
+            company: z.string().min(1),
+            location: z.string().optional(),
+            employmentType: z.string().optional(),
+            workType: z.string().optional(),
+            isPromoted: z.boolean().optional(),
+            isEasyApply: z.boolean().optional(),
+            hasVerified: z.boolean().optional(),
+            insight: z.string().optional(),
+            postedDate: z.string().optional(),
+            companyLogoUrl: z.string().url().optional(),
+            discoverySource: z.string(),
+            discoveryUrl: z.string().url().optional(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const discoveredBy = ctx.session?.user?.id;
+
+      // Fire-and-forget: save jobs but don't expose details to client
+      try {
+        const results = await DiscoveredJobService.bulkCreateOrUpdate(
+          input.jobs.map((job) => ({
+            ...job,
+            discoveredBy,
+          }))
+        );
+
+        // Log results for monitoring
+        console.log(
+          `[discoverJobs] Processed ${input.jobs.length} jobs: ${results.created} created, ${results.updated} updated`
+        );
+      } catch (error) {
+        // Log error but don't fail - discovery is best-effort
+        console.error("[discoverJobs] Failed to save discovered jobs:", error);
+      }
+
+      // Always return success to client
+      return { success: true };
+    }),
+
+  // Get unprocessed discovered jobs
+  getUnprocessedJobs: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).optional().default(50),
+        offset: z.number().min(0).optional().default(0),
+        discoverySource: z.string().optional(),
+        minAge: z.number().min(0).optional(), // Minimum hours since discovery
+      })
+    )
+    .query(async ({ input }) => {
+      return await DiscoveredJobService.findUnprocessed({
+        limit: input.limit,
+        offset: input.offset,
+        discoverySource: input.discoverySource,
+        minAge: input.minAge,
+      });
+    }),
+
+  // Mark discovered job as processed
+  markJobProcessed: publicProcedure
+    .input(
+      z.object({
+        discoveredJobId: z.string(),
+        jobId: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      await DiscoveredJobService.markAsProcessed(
+        input.discoveredJobId,
+        input.jobId
+      );
       return { success: true };
     }),
 

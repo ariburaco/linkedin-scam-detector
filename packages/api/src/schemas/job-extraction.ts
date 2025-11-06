@@ -93,6 +93,9 @@ export const jobExtractionSchema = z.object({
   workSchedule: z
     .enum(["full-time", "part-time", "contract", "temporary", "internship"])
     .optional(),
+
+  // Agency detection
+  isAgency: z.boolean().optional(), // true if posting is from recruitment agency/staffing firm
 });
 
 export type Requirement = z.infer<typeof requirementSchema>;

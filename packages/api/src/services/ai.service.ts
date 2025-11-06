@@ -1,19 +1,19 @@
 import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 
+import { buildJobExtractionPrompt } from "../prompts/job-extraction";
 import {
   buildFallbackPrompt,
   buildScamDetectionPrompt,
 } from "../prompts/scam-detection";
-import { buildJobExtractionPrompt } from "../prompts/job-extraction";
-import {
-  scamAnalysisSchema,
-  type ScamAnalysisResult,
-} from "../schemas/scam-analysis";
 import {
   jobExtractionSchema,
   type JobExtractionResult,
 } from "../schemas/job-extraction";
+import {
+  scamAnalysisSchema,
+  type ScamAnalysisResult,
+} from "../schemas/scam-analysis";
 import {
   calculateCost,
   extractUsageFromResponse,
@@ -58,9 +58,7 @@ export class AIService {
   /**
    * Analyze a job posting for scam indicators
    */
-  async analyzeJob(
-    options: AnalyzeJobOptions
-  ): Promise<AnalyzeJobResult> {
+  async analyzeJob(options: AnalyzeJobOptions): Promise<AnalyzeJobResult> {
     const { jobText, jobTitle, companyName } = options;
 
     // Use centralized prompt builder

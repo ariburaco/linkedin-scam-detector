@@ -1,5 +1,5 @@
 import { findElement, SELECTORS } from "./selectors";
-import type { JobData } from "./types";
+import type { DiscoveredJobData, JobData } from "./types";
 
 /**
  * Extract LinkedIn job ID from URL
@@ -304,4 +304,172 @@ export function generateJobId(jobData: { url: string; title: string }): string {
     hashValue = hashValue & hashValue; // Convert to 32-bit integer
   }
   return `job-${Math.abs(hashValue)}`;
+}
+
+/**
+ * Extract work type from location text
+ * e.g., "Istanbul, Turkey (Remote)" → "remote"
+ */
+function extractWorkType(locationText?: string | null): string | undefined {
+  if (!locationText) return undefined;
+  const lowerText = locationText.toLowerCase();
+  if (lowerText.includes("remote")) return "remote";
+  if (lowerText.includes("hybrid")) return "hybrid";
+  if (lowerText.includes("on-site") || lowerText.includes("onsite"))
+    return "on-site";
+  return undefined;
+}
+
+/**
+ * Extract job card data from a list item element (search/collection pages)
+ */
+export function extractJobCardFromElement(
+  li: HTMLElement
+): DiscoveredJobData | null {
+  try {
+    // Extract LinkedIn job ID from data attributes
+    const jobId =
+      li.dataset.occludableJobId ||
+      li.dataset.jobId ||
+      li.querySelector("[data-job-id]")?.getAttribute("data-job-id");
+
+    if (!jobId) {
+      return null;
+    }
+
+    // Extract job link
+    const link = li.querySelector<HTMLAnchorElement>(
+      'a[href*="/jobs/view/"]'
+    );
+    const url =
+      link?.href || `https://www.linkedin.com/jobs/view/${jobId}`;
+
+    // Extract title
+    const titleElement = li.querySelector(
+      ".job-card-list__title strong, .job-card-container__link strong"
+    );
+    const title = titleElement?.textContent?.trim();
+
+    if (!title) {
+      return null;
+    }
+
+    // Extract company
+    const companyElement = li.querySelector(
+      ".artdeco-entity-lockup__subtitle span, .job-card-container__company-name"
+    );
+    const company = companyElement?.textContent?.trim();
+
+    if (!company) {
+      return null;
+    }
+
+    // Extract location and work type
+    const locationElement = li.querySelector(
+      ".job-card-container__metadata-wrapper li"
+    );
+    const locationText = locationElement?.textContent?.trim();
+    const workType = extractWorkType(locationText);
+
+    // Extract employment type (may be in insights or metadata)
+    const employmentTypeText = Array.from(
+      li.querySelectorAll(".job-card-container__metadata-wrapper li")
+    )
+      .map((el) => el.textContent?.trim())
+      .find((text) =>
+        /full-time|part-time|contract|temporary|internship/i.test(text || "")
+      );
+
+    // Check for "Promoted" badge
+    const isPromoted = !!Array.from(
+      li.querySelectorAll(".job-card-container__footer-item")
+    ).find((el) => el.textContent?.toLowerCase().includes("promoted"));
+
+    // Check for "Easy Apply" badge
+    const isEasyApply = !!li.querySelector(
+      'svg[data-test-icon="linkedin-bug-color-small"]'
+    );
+
+    // Check for verified badge
+    const hasVerified = !!li.querySelector('[aria-label*="Verified"]');
+
+    // Extract insight text
+    const insightElement = li.querySelector(
+      ".job-card-container__job-insight-text"
+    );
+    const insight = insightElement?.textContent?.trim();
+
+    // Extract company logo
+    const logoImg = li.querySelector<HTMLImageElement>(
+      ".job-card-list__logo img, .job-card-container__logo img"
+    );
+    const companyLogoUrl = logoImg?.src;
+
+    // Extract posted date (may be in footer or insights)
+    const postedDateText = Array.from(
+      li.querySelectorAll(
+        ".job-card-container__footer-item, .job-card-list__footer-item"
+      )
+    )
+      .map((el) => el.textContent?.trim())
+      .find((text) =>
+        /\d+\s+(day|days|week|weeks|month|months)\s+ago/i.test(text || "")
+      );
+
+    // Determine discovery source from URL
+    const pathname = window.location.pathname;
+    let discoverySource = "search";
+    if (pathname.includes("/jobs/collections")) {
+      discoverySource = "collections";
+    } else if (pathname.includes("/jobs/search")) {
+      discoverySource = "search";
+    }
+
+    return {
+      linkedinJobId: jobId,
+      url,
+      title,
+      company,
+      location: locationText,
+      employmentType: employmentTypeText,
+      workType,
+      isPromoted,
+      isEasyApply,
+      hasVerified,
+      insight,
+      postedDate: postedDateText,
+      companyLogoUrl,
+      discoverySource,
+      discoveryUrl: window.location.href,
+    };
+  } catch (error) {
+    console.error(
+      "[LinkedIn Scam Detector] Error extracting job card:",
+      error
+    );
+    return null;
+  }
+}
+
+/**
+ * Extract all job cards from search/collection page
+ */
+export function extractJobCardsFromList(
+  container: HTMLElement | Document = document
+): DiscoveredJobData[] {
+  const jobs: DiscoveredJobData[] = [];
+
+  // Find all job card list items
+  const jobCards = container.querySelectorAll<HTMLElement>(
+    'li[data-occludable-job-id], li[data-job-id], li.jobs-search-results__list-item'
+  );
+
+  for (const card of jobCards) {
+    const jobData = extractJobCardFromElement(card);
+    if (jobData) {
+      jobs.push(jobData);
+    }
+  }
+
+  return jobs;
 }

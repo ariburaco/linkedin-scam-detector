@@ -69,8 +69,9 @@ model JobExtraction {
   educationLevel  String? @db.VarChar(100) // high-school, bachelor, master, phd
 
   // Work details
-  workType     String? @db.VarChar(50) // remote, hybrid, on-site
-  workSchedule String? @db.VarChar(50) // full-time, part-time, contract, etc.
+  workType     String?  @db.VarChar(50) // remote, hybrid, on-site
+  workSchedule String?  @db.VarChar(50) // full-time, part-time, contract, etc.
+  isAgency     Boolean? // true if posting is from recruitment agency/staffing firm
 
   // Extracted skills (structured)
   skills Json? // Array of {name, category, required, experience}
@@ -92,4 +93,52 @@ model JobExtraction {
   @@index([experienceLevel])
   @@index([workType])
   @@map("scam_detector_job_extraction")
+}
+
+model DiscoveredJob {
+  id             String  @id @default(cuid())
+  linkedinJobId  String  @unique @db.VarChar(100) // LinkedIn job ID (unique constraint)
+  url            String  @db.Text // Full LinkedIn job URL
+  title          String  @db.VarChar(500)
+  company        String  @db.VarChar(500)
+  location       String? @db.VarChar(500)
+  employmentType String? @db.VarChar(100) // Full-time, Part-time, Contract, etc.
+  workType       String? @db.VarChar(50) // Remote, Hybrid, On-site
+  isPromoted     Boolean @default(false) // Whether job is promoted
+  isEasyApply    Boolean @default(false) // Whether Easy Apply is available
+  hasVerified    Boolean @default(false) // Whether company/job is verified
+  insight        String? @db.VarChar(200) // e.g., "Actively reviewing applicants"
+  postedDate     String? @db.VarChar(100) // e.g., "1 week ago", "3 days ago"
+  companyLogoUrl String? @db.Text // Company logo image URL
+
+  // Discovery metadata
+  discoveredAt    DateTime @default(now())
+  discoveredBy    String? // User ID who discovered (nullable for anonymous)
+  discoverySource String   @db.VarChar(50) // "search", "recommended", "collections", etc.
+  discoveryUrl    String?  @db.Text // URL of the page where job was discovered
+
+  // Processing tracking
+  processedAt        DateTime? // When full job details were scraped (null = not processed)
+  processedJobId     String?   @db.VarChar(100) // Reference to Job.id after processing
+  processingStatus   String    @default("pending") @db.VarChar(50) // "pending", "queued", "processing", "completed", "failed"
+  processingAttempts Int       @default(0) // Retry counter
+  lastProcessError   String?   @db.Text // Error message if failed
+
+  // Priority scoring (calculated)
+  priorityScore Float? // Higher = process first
+
+  // Raw data for flexibility
+  rawData Json? // Store any additional scraped data
+
+  // Note: No foreign key relation to Job table
+  // DiscoveredJobs are created BEFORE full job scraping
+  // processedJobId can be used for manual lookup after processing
+
+  @@index([linkedinJobId])
+  @@index([discoveredAt])
+  @@index([processedAt])
+  @@index([discoverySource])
+  @@index([processingStatus])
+  @@index([priorityScore])
+  @@map("scam_detector_discovered_job")
 }
