@@ -98,6 +98,27 @@ export class JobExtractionService {
   }
 
   /**
+   * Check if job already has any extraction
+   */
+  static async hasExtraction(jobId: string): Promise<boolean> {
+    try {
+      const extraction = await prisma.jobExtraction.findFirst({
+        where: { jobId },
+        select: { id: true },
+      });
+
+      return extraction !== null;
+    } catch (error) {
+      logger.error("Failed to check if job has extraction", {
+        jobId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      // Return false on error to allow workflow to proceed (fail-safe)
+      return false;
+    }
+  }
+
+  /**
    * Find extractions for a job
    */
   static async findByJobId(jobId: string) {

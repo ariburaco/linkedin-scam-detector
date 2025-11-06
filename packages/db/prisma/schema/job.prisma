@@ -79,7 +79,7 @@ model JobExtraction {
   extractedData Json? // Complete extraction result with all parsed information
 
   // Structured embedding for precise skill matching
-  structuredEmbedding Unsupported("vector(768)")? // Vector embedding from structured data
+  structuredEmbedding Unsupported("vector(768)")? @map("structured_embedding") // Vector embedding from structured data
 
   // Metadata
   extractedAt      DateTime @default(now())

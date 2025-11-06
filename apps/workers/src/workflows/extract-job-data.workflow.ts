@@ -26,10 +26,8 @@ export interface ExtractJobDataWorkflowInput {
 }
 
 export interface ExtractJobDataWorkflowOutput {
-  success: boolean;
-  extractionId?: string;
+  extractionId: string;
   workflowId: string;
-  error?: string;
 }
 
 /**
@@ -53,24 +51,20 @@ export async function ExtractJobData(
     companyName: input.companyName,
   });
 
-  if (!extractionResult.success || !extractionResult.extractionResult) {
-    return {
-      success: false,
-      workflowId,
-      error: extractionResult.error || 'Failed to extract job data with AI',
-    };
-  }
-
   // Step 2: Generate structured embedding (optional - don't fail if this fails)
   let structuredEmbedding: number[] | undefined;
-  const embeddingResult = await generateStructuredEmbedding({
-    extractionResult: extractionResult.extractionResult,
-  });
+  let embeddingCostMetadata: unknown | undefined;
 
-  if (embeddingResult.success && embeddingResult.embedding) {
+  try {
+    const embeddingResult = await generateStructuredEmbedding({
+      extractionResult: extractionResult.extractionResult,
+    });
     structuredEmbedding = embeddingResult.embedding;
+    embeddingCostMetadata = embeddingResult.costMetadata;
+  } catch (error) {
+    // Log but continue - structured embedding is optional
+    console.warn('Failed to generate structured embedding (optional):', error);
   }
-  // Continue even if embedding generation fails - it's optional
 
   // Step 3: Save extraction and embedding to database (with cost metadata)
   const saveResult = await saveJobExtraction({
@@ -78,19 +72,10 @@ export async function ExtractJobData(
     extractionResult: extractionResult.extractionResult,
     structuredEmbedding,
     extractionCostMetadata: extractionResult.costMetadata,
-    embeddingCostMetadata: embeddingResult.costMetadata,
+    embeddingCostMetadata,
   });
 
-  if (!saveResult.success) {
-    return {
-      success: false,
-      workflowId,
-      error: saveResult.error || 'Failed to save job extraction',
-    };
-  }
-
   return {
-    success: true,
     extractionId: saveResult.extractionId,
     workflowId,
   };

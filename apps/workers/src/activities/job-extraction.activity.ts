@@ -21,10 +21,8 @@ export interface ExtractJobDataInput {
 }
 
 export interface ExtractJobDataOutput {
-  success: boolean;
-  extractionResult?: JobExtractionResult;
+  extractionResult: JobExtractionResult;
   costMetadata?: unknown; // Cost metadata from extraction
-  error?: string;
 }
 
 /**
@@ -33,59 +31,44 @@ export interface ExtractJobDataOutput {
 export async function extractJobDataWithAI(
   input: ExtractJobDataInput
 ): Promise<ExtractJobDataOutput> {
-  try {
-    logger.info('Extracting job data with AI', {
-      jobId: input.jobId,
-      jobTitle: input.jobTitle,
-      companyName: input.companyName,
-    });
+  logger.info('Extracting job data with AI', {
+    jobId: input.jobId,
+    jobTitle: input.jobTitle,
+    companyName: input.companyName,
+  });
 
-    // Get job data if title/company not provided
-    let jobTitle = input.jobTitle;
-    let companyName = input.companyName;
+  // Get job data if title/company not provided
+  let jobTitle = input.jobTitle;
+  let companyName = input.companyName;
 
-    if (!jobTitle || !companyName) {
-      const job = await JobService.findById(input.jobId);
+  if (!jobTitle || !companyName) {
+    const job = await JobService.findById(input.jobId);
 
-      if (!job) {
-        throw new Error(`Job not found: ${input.jobId}`);
-      }
-
-      jobTitle = jobTitle || job.title;
-      companyName = companyName || job.company;
+    if (!job) {
+      throw new Error(`Job not found: ${input.jobId}`);
     }
 
-    const result = await aiService.extractJobData({
-      jobText: input.jobText,
-      jobTitle,
-      companyName,
-    });
-
-    logger.info('Job data extracted successfully', {
-      jobId: input.jobId,
-      hasRequirements: !!result.result.requirements?.length,
-      hasSkills: !!result.result.skills?.length,
-      cost: result.costMetadata?.cost?.totalCost,
-    });
-
-    return {
-      success: true,
-      extractionResult: result.result,
-      costMetadata: result.costMetadata,
-    };
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to extract job data with AI', {
-      jobId: input.jobId,
-      error: errorMessage,
-    });
-
-    return {
-      success: false,
-      error: errorMessage,
-    };
+    jobTitle = jobTitle || job.title;
+    companyName = companyName || job.company;
   }
+
+  const result = await aiService.extractJobData({
+    jobText: input.jobText,
+    jobTitle,
+    companyName,
+  });
+
+  logger.info('Job data extracted successfully', {
+    jobId: input.jobId,
+    hasRequirements: !!result.result.requirements?.length,
+    hasSkills: !!result.result.skills?.length,
+    cost: result.costMetadata?.cost?.totalCost,
+  });
+
+  return {
+    extractionResult: result.result,
+    costMetadata: result.costMetadata,
+  };
 }
 
 export interface GenerateStructuredEmbeddingInput {
@@ -93,10 +76,8 @@ export interface GenerateStructuredEmbeddingInput {
 }
 
 export interface GenerateStructuredEmbeddingOutput {
-  success: boolean;
-  embedding?: number[];
+  embedding: number[];
   costMetadata?: unknown; // Cost metadata from embedding
-  error?: string;
 }
 
 /**
@@ -105,36 +86,21 @@ export interface GenerateStructuredEmbeddingOutput {
 export async function generateStructuredEmbedding(
   input: GenerateStructuredEmbeddingInput
 ): Promise<GenerateStructuredEmbeddingOutput> {
-  try {
-    logger.info('Generating structured embedding from extraction data');
+  logger.info('Generating structured embedding from extraction data');
 
-    const result = await embeddingService.embedStructuredData(
-      input.extractionResult
-    );
+  const result = await embeddingService.embedStructuredData(
+    input.extractionResult
+  );
 
-    logger.info('Structured embedding generated successfully', {
-      embeddingLength: result.embedding.length,
-      cost: result.costMetadata?.cost?.totalCost,
-    });
+  logger.info('Structured embedding generated successfully', {
+    embeddingLength: result.embedding.length,
+    cost: result.costMetadata?.cost?.totalCost,
+  });
 
-    return {
-      success: true,
-      embedding: result.embedding,
-      costMetadata: result.costMetadata,
-    };
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error';
-    logger.warn('Failed to generate structured embedding', {
-      error: errorMessage,
-    });
-
-    // Don't fail the workflow if structured embedding fails - it's optional
-    return {
-      success: false,
-      error: errorMessage,
-    };
-  }
+  return {
+    embedding: result.embedding,
+    costMetadata: result.costMetadata,
+  };
 }
 
 export interface SaveJobExtractionInput {
@@ -146,9 +112,7 @@ export interface SaveJobExtractionInput {
 }
 
 export interface SaveJobExtractionOutput {
-  success: boolean;
-  extractionId?: string;
-  error?: string;
+  extractionId: string;
 }
 
 /**
@@ -157,55 +121,40 @@ export interface SaveJobExtractionOutput {
 export async function saveJobExtraction(
   input: SaveJobExtractionInput
 ): Promise<SaveJobExtractionOutput> {
-  try {
-    logger.info('Saving job extraction to database', {
-      jobId: input.jobId,
-      hasStructuredEmbedding: !!input.structuredEmbedding,
-    });
+  logger.info('Saving job extraction to database', {
+    jobId: input.jobId,
+    hasStructuredEmbedding: !!input.structuredEmbedding,
+  });
 
-    // Combine cost metadata (extraction + embedding if available)
-    const combinedMetadata: Record<string, unknown> = {};
-    if (input.extractionCostMetadata) {
-      combinedMetadata.extraction = input.extractionCostMetadata;
-    }
-    if (input.embeddingCostMetadata) {
-      combinedMetadata.embedding = input.embeddingCostMetadata;
-    }
-
-    // Save extraction to database using service
-    const extraction = await JobExtractionService.createWithEmbedding(
-      {
-        jobId: input.jobId,
-        extractionResult: input.extractionResult,
-        extractionModel: 'gemini-2.0-flash-exp',
-        extractionSource: 'gemini',
-        metadata:
-          Object.keys(combinedMetadata).length > 0
-            ? (combinedMetadata as InputJsonValue)
-            : undefined,
-      },
-      input.structuredEmbedding
-    );
-
-    logger.info('Job extraction saved successfully', {
-      extractionId: extraction.id,
-    });
-
-    return {
-      success: true,
-      extractionId: extraction.id,
-    };
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to save job extraction', {
-      jobId: input.jobId,
-      error: errorMessage,
-    });
-
-    return {
-      success: false,
-      error: errorMessage,
-    };
+  // Combine cost metadata (extraction + embedding if available)
+  const combinedMetadata: Record<string, unknown> = {};
+  if (input.extractionCostMetadata) {
+    combinedMetadata.extraction = input.extractionCostMetadata;
   }
+  if (input.embeddingCostMetadata) {
+    combinedMetadata.embedding = input.embeddingCostMetadata;
+  }
+
+  // Save extraction to database using service
+  const extraction = await JobExtractionService.createWithEmbedding(
+    {
+      jobId: input.jobId,
+      extractionResult: input.extractionResult,
+      extractionModel: 'gemini-2.0-flash-exp',
+      extractionSource: 'gemini',
+      metadata:
+        Object.keys(combinedMetadata).length > 0
+          ? (combinedMetadata as InputJsonValue)
+          : undefined,
+    },
+    input.structuredEmbedding
+  );
+
+  logger.info('Job extraction saved successfully', {
+    extractionId: extraction.id,
+  });
+
+  return {
+    extractionId: extraction.id,
+  };
 }

@@ -27,10 +27,8 @@ export interface GenerateJobEmbeddingWorkflowInput {
 }
 
 export interface GenerateJobEmbeddingWorkflowOutput {
-  success: boolean;
   jobId: string;
   workflowId: string;
-  error?: string;
 }
 
 /**
@@ -53,33 +51,14 @@ export async function GenerateJobEmbedding(
     description: input.description,
   });
 
-  if (!generateResult.success || !generateResult.embedding) {
-    return {
-      success: false,
-      jobId: input.jobId,
-      workflowId,
-      error: generateResult.error || 'Failed to generate embedding',
-    };
-  }
-
   // Step 2: Save embedding to database (with cost metadata)
-  const saveResult = await saveJobEmbedding({
+  await saveJobEmbedding({
     jobId: input.jobId,
     embedding: generateResult.embedding,
     costMetadata: generateResult.costMetadata,
   });
 
-  if (!saveResult.success) {
-    return {
-      success: false,
-      jobId: input.jobId,
-      workflowId,
-      error: saveResult.error || 'Failed to save embedding',
-    };
-  }
-
   return {
-    success: true,
     jobId: input.jobId,
     workflowId,
   };

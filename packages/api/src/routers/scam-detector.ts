@@ -8,10 +8,12 @@ import { aiService } from "../services/ai.service";
 import { batchEmbeddingService } from "../services/batch-embedding.service";
 import { FeedbackService } from "../services/feedback.service";
 import { JobAnalysisService } from "../services/job-analysis.service";
+import { JobExtractionService } from "../services/job-extraction.service";
 import { JobSearchService } from "../services/job-search.service";
 import { JobService } from "../services/job.service";
 import { TemporalService } from "../services/temporal.service";
 import { parsePostedDate } from "../utils/date-utils";
+import { extractLinkedInJobId } from "../utils/linkedin-url-parser";
 
 import { scanJobCacheMiddleware } from "./middlewares/trpc-cache";
 
@@ -35,6 +37,9 @@ export const scamDetectorRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { linkedinJobId, url, ...jobData } = input;
 
+      // Extract LinkedIn job ID from URL if not provided
+      const extractedJobId = linkedinJobId || extractLinkedInJobId(url) || null;
+
       // Generate URL hash
       const jobUrlHash = createHash("sha256").update(url).digest("hex");
 
@@ -46,7 +51,7 @@ export const scamDetectorRouter = router({
 
       // Create or update job using service
       const job = await JobService.createOrUpdate({
-        linkedinJobId: linkedinJobId || null,
+        linkedinJobId: extractedJobId,
         jobUrlHash,
         url,
         title: jobData.title,
@@ -60,21 +65,31 @@ export const scamDetectorRouter = router({
         rawData: input.rawData || null,
       });
 
-      // Trigger async embedding generation workflow (fire-and-forget)
+      // Check if embedding already exists before starting workflow
+      const hasExistingEmbedding = await JobService.hasEmbedding(job.id);
+
       let workflowId: string | undefined;
-      try {
-        const workflowResult = await TemporalService.startJobEmbeddingWorkflow({
-          jobId: job.id,
-          title: jobData.title,
-          company: jobData.company,
-          description: jobData.description,
-        });
-        workflowId = workflowResult.workflowId;
-      } catch (error) {
-        // Log but don't fail - embedding is optional enhancement
-        console.error(
-          "[saveJob] Failed to start embedding workflow:",
-          error instanceof Error ? error.message : "Unknown error"
+      if (!hasExistingEmbedding) {
+        // Trigger async embedding generation workflow (fire-and-forget)
+        try {
+          const workflowResult =
+            await TemporalService.startJobEmbeddingWorkflow({
+              jobId: job.id,
+              title: jobData.title,
+              company: jobData.company,
+              description: jobData.description,
+            });
+          workflowId = workflowResult.workflowId;
+        } catch (error) {
+          // Log but don't fail - embedding is optional enhancement
+          console.error(
+            "[saveJob] Failed to start embedding workflow:",
+            error instanceof Error ? error.message : "Unknown error"
+          );
+        }
+      } else {
+        console.log(
+          `[saveJob] Skipping embedding workflow - job ${job.id} already has embedding`
         );
       }
 
@@ -101,25 +116,34 @@ export const scamDetectorRouter = router({
         throw new Error("Job not found");
       }
 
-      // Trigger async extraction workflow (fire-and-forget)
+      // Check if extraction already exists before starting workflow
+      const hasExistingExtraction =
+        await JobExtractionService.hasExtraction(jobId);
+
       let workflowId: string | undefined;
-      try {
-        const workflowResult = await TemporalService.startJobExtractionWorkflow(
-          {
-            jobId,
-            jobText,
-            jobTitle: jobTitle || job.title,
-            companyName: companyName || job.company,
-          }
+      if (!hasExistingExtraction) {
+        // Trigger async extraction workflow (fire-and-forget)
+        try {
+          const workflowResult =
+            await TemporalService.startJobExtractionWorkflow({
+              jobId,
+              jobText,
+              jobTitle: jobTitle || job.title,
+              companyName: companyName || job.company,
+            });
+          workflowId = workflowResult.workflowId;
+        } catch (error) {
+          // Log but don't fail - extraction is optional enhancement
+          console.error(
+            "[extractJobData] Failed to start extraction workflow:",
+            error instanceof Error ? error.message : "Unknown error"
+          );
+          // Still return success since workflow start failure shouldn't break the API
+        }
+      } else {
+        console.log(
+          `[extractJobData] Skipping extraction workflow - job ${jobId} already has extraction`
         );
-        workflowId = workflowResult.workflowId;
-      } catch (error) {
-        // Log but don't fail - extraction is optional enhancement
-        console.error(
-          "[extractJobData] Failed to start extraction workflow:",
-          error instanceof Error ? error.message : "Unknown error"
-        );
-        // Still return success since workflow start failure shouldn't break the API
       }
 
       return { success: true, workflowId, jobId };

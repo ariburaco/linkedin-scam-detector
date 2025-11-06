@@ -219,6 +219,28 @@ export class JobService {
   }
 
   /**
+   * Check if job already has an embedding
+   */
+  static async hasEmbedding(jobId: string): Promise<boolean> {
+    try {
+      // Use raw SQL since Prisma doesn't support vector type directly
+      const result = await prisma.$queryRawUnsafe<Array<{ embedding_exists: boolean }>>(
+        `SELECT embedding IS NOT NULL as embedding_exists FROM scam_detector_job WHERE id = $1`,
+        jobId
+      );
+
+      return result.length > 0 && result[0]?.embedding_exists === true;
+    } catch (error) {
+      logger.error("Failed to check if job has embedding", {
+        jobId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      // Return false on error to allow workflow to proceed (fail-safe)
+      return false;
+    }
+  }
+
+  /**
    * Update job embedding and metadata together
    */
   static async updateEmbeddingAndMetadata(
