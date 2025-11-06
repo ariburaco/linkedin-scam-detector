@@ -76,6 +76,14 @@ model JobExtraction {
   // Extracted skills (structured)
   skills Json? // Array of {name, category, required, experience}
 
+  // Job metrics and indicators
+  urgencyScore         Int? // Urgency score 0-100 (high = explicit deadlines, immediate hiring)
+  qualityScore         Int? // Quality score 0-10 (information completeness, professional writing)
+  competitivenessScore Int? // Competitiveness score 0-10 (estimated competition level)
+  scamIndicators       Json? // Array of scam indicator strings (complements existing scam detection)
+  startDate            DateTime? // Job start date if mentioned
+  applicationDeadline  DateTime? // Application deadline if mentioned
+
   // Full extraction result (for flexibility)
   extractedData Json? // Complete extraction result with all parsed information
 
@@ -92,6 +100,7 @@ model JobExtraction {
   @@index([extractedAt])
   @@index([experienceLevel])
   @@index([workType])
+  @@index([urgencyScore])
   @@map("scam_detector_job_extraction")
 }
 

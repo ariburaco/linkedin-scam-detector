@@ -96,6 +96,14 @@ export const jobExtractionSchema = z.object({
 
   // Agency detection
   isAgency: z.boolean().optional(), // true if posting is from recruitment agency/staffing firm
+
+  // Job metrics and indicators
+  urgencyScore: z.number().int().min(0).max(100).optional(), // Urgency score 0-100
+  qualityScore: z.number().int().min(0).max(10).optional(), // Quality score 0-10
+  competitivenessScore: z.number().int().min(0).max(10).optional(), // Competitiveness score 0-10
+  scamIndicators: z.array(z.string()).optional(), // Array of scam indicator strings
+  startDate: z.string().optional(), // ISO date string for job start date
+  applicationDeadline: z.string().optional(), // ISO date string for application deadline
 });
 
 export type Requirement = z.infer<typeof requirementSchema>;

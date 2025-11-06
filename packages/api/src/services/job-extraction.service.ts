@@ -20,22 +20,71 @@ export interface CreateJobExtractionInput {
 
 export class JobExtractionService {
   /**
+   * Parse ISO date string to Date object, return null if invalid or undefined
+   */
+  private static parseDate(dateString: string | undefined | null): Date | null {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? null : date;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Create a new job extraction
    */
   static async create(input: CreateJobExtractionInput): Promise<JobExtraction> {
     try {
-      return await prisma.jobExtraction.create({
-        data: {
-          jobId: input.jobId,
-          ...input.extractionResult,
-          extractedData: input.extractionResult, // Store full result for flexibility
-          extractionModel: input.extractionModel,
-          extractionSource: input.extractionSource,
-          metadata: input.metadata
-            ? (input.metadata as InputJsonValue)
-            : undefined,
-        },
-      });
+      const {
+        startDate: startDateStr,
+        applicationDeadline: deadlineStr,
+        scamIndicators,
+        ...restResult
+      } = input.extractionResult;
+
+      // Parse dates from ISO strings
+      const startDate = this.parseDate(startDateStr);
+      const applicationDeadline = this.parseDate(deadlineStr);
+
+      // Prepare data object with proper field mapping
+      const data = {
+        jobId: input.jobId,
+        // Map existing fields
+        requirements: restResult.requirements as InputJsonValue | undefined,
+        responsibilities: restResult.responsibilities as InputJsonValue | undefined,
+        benefits: restResult.benefits as InputJsonValue | undefined,
+        qualifications: restResult.qualifications as InputJsonValue | undefined,
+        skills: restResult.skills as InputJsonValue | undefined,
+        salaryMin: restResult.salaryMin,
+        salaryMax: restResult.salaryMax,
+        salaryCurrency: restResult.salaryCurrency,
+        salaryPeriod: restResult.salaryPeriod,
+        experienceLevel: restResult.experienceLevel,
+        educationLevel: restResult.educationLevel,
+        workType: restResult.workType,
+        workSchedule: restResult.workSchedule,
+        isAgency: restResult.isAgency,
+        // Map new metrics
+        urgencyScore: restResult.urgencyScore,
+        qualityScore: restResult.qualityScore,
+        competitivenessScore: restResult.competitivenessScore,
+        scamIndicators: scamIndicators
+          ? (scamIndicators as InputJsonValue)
+          : undefined,
+        startDate,
+        applicationDeadline,
+        // Store full result in extractedData for flexibility
+        extractedData: input.extractionResult as InputJsonValue,
+        extractionModel: input.extractionModel,
+        extractionSource: input.extractionSource,
+        metadata: input.metadata
+          ? (input.metadata as InputJsonValue)
+          : undefined,
+      };
+
+      return await prisma.jobExtraction.create({ data });
     } catch (error) {
       logger.error("Failed to create job extraction", {
         jobId: input.jobId,

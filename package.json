@@ -49,7 +49,6 @@
     "db:push": "turbo -F @acme/db db:push --",
     "db:studio": "turbo -F @acme/db db:studio",
     "db:generate": "turbo -F @acme/db db:generate",
-    "db:migrate": "turbo -F @acme/db db:migrate",
     "db:seed": "turbo -F @acme/db db:seed",
     "schedules:setup": "turbo -F @acme/workers schedules:setup",
     "schedules:list": "turbo -F @acme/workers schedules:list",
