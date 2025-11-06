@@ -1,3 +1,5 @@
+import { convertHtmlToMarkdown } from "@acme/shared/utils";
+
 import { findElement, SELECTORS } from "./selectors";
 import type { DiscoveredJobData, JobData } from "./types";
 
@@ -124,12 +126,17 @@ export function extractJobDataFromCard(
     // Extract LinkedIn job ID from URL
     const linkedinJobId = extractLinkedInJobId(url);
 
-    // Extract description (may be truncated in cards)
+    // Extract description as HTML (may be truncated in cards)
     const descriptionElement = findElement(
       cardElement,
       SELECTORS.jobDescription
     );
-    const description = descriptionElement?.textContent?.trim() || "";
+    const descriptionHtml = descriptionElement?.innerHTML?.trim() || "";
+
+    // Convert HTML to Markdown
+    const description = descriptionHtml
+      ? convertHtmlToMarkdown(descriptionHtml)
+      : "";
 
     // Extract salary if available
     const salaryElement = findElement(cardElement, SELECTORS.salary);
@@ -179,9 +186,14 @@ export function extractJobDataFromPage(): JobData | null {
     const companyElement = findElement(document, SELECTORS.companyName);
     const company = companyElement?.textContent?.trim() || "";
 
-    // Extract full job description
+    // Extract full job description as HTML
     const descriptionElement = findElement(document, SELECTORS.jobDescription);
-    const description = descriptionElement?.textContent?.trim() || "";
+    const descriptionHtml = descriptionElement?.innerHTML?.trim() || "";
+
+    // Convert HTML to Markdown
+    const description = descriptionHtml
+      ? convertHtmlToMarkdown(descriptionHtml)
+      : "";
 
     // Use current URL
     const url = window.location.href;
@@ -338,11 +350,8 @@ export function extractJobCardFromElement(
     }
 
     // Extract job link
-    const link = li.querySelector<HTMLAnchorElement>(
-      'a[href*="/jobs/view/"]'
-    );
-    const url =
-      link?.href || `https://www.linkedin.com/jobs/view/${jobId}`;
+    const link = li.querySelector<HTMLAnchorElement>('a[href*="/jobs/view/"]');
+    const url = link?.href || `https://www.linkedin.com/jobs/view/${jobId}`;
 
     // Extract title
     const titleElement = li.querySelector(
@@ -443,10 +452,7 @@ export function extractJobCardFromElement(
       discoveryUrl: window.location.href,
     };
   } catch (error) {
-    console.error(
-      "[LinkedIn Scam Detector] Error extracting job card:",
-      error
-    );
+    console.error("[LinkedIn Scam Detector] Error extracting job card:", error);
     return null;
   }
 }
@@ -461,7 +467,7 @@ export function extractJobCardsFromList(
 
   // Find all job card list items
   const jobCards = container.querySelectorAll<HTMLElement>(
-    'li[data-occludable-job-id], li[data-job-id], li.jobs-search-results__list-item'
+    "li[data-occludable-job-id], li[data-job-id], li.jobs-search-results__list-item"
   );
 
   for (const card of jobCards) {

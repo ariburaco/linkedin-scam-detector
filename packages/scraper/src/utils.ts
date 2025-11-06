@@ -45,6 +45,28 @@ export async function extractText(
 }
 
 /**
+ * Extract HTML from element
+ */
+export async function extractHtml(
+  page: Page,
+  selector: string
+): Promise<string | null> {
+  try {
+    const element = await page.$(selector);
+    if (!element) {
+      return null;
+    }
+    const html = await page.evaluate(
+      (el) => el.innerHTML?.trim() || null,
+      element
+    );
+    return html;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
  * Extract attribute from element
  */
 export async function extractAttribute(

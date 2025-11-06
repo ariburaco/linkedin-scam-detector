@@ -17,6 +17,7 @@ import type {
 import {
   dismissContextualSignInModal,
   expandJobDescription,
+  extractHtml,
   extractLinkedInJobIdFromUrl,
   extractText,
   isRateLimited,
@@ -25,6 +26,7 @@ import {
   sleep,
   waitForSelector,
 } from './utils';
+import { convertHtmlToMarkdown } from '@acme/shared/utils';
 
 const logger = new Logger('LinkedInScraper');
 
@@ -460,12 +462,17 @@ export class LinkedInScraper {
       const applicants =
         (await extractText(page, '.num-applicants__caption')) || null;
 
-      // Extract description (try new selectors first, fallback to old ones)
-      const description =
-        (await extractText(
+      // Extract description as HTML (try new selectors first, fallback to old ones)
+      const descriptionHtml =
+        (await extractHtml(
           page,
-          '.description__text.description__text--rich, .jobs-description-content__text, .jobs-box__html-content'
+          '.description__text.description__text--rich, .jobs-description-content__text, .jobs-box__html-content, .show-more-less-html__markup'
         )) || null;
+
+      // Convert HTML to Markdown
+      const description = descriptionHtml
+        ? convertHtmlToMarkdown(descriptionHtml)
+        : null;
 
       // Extract salary (try new selectors first, fallback to old ones)
       const salary =
