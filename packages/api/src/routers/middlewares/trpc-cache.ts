@@ -1,6 +1,8 @@
 import { env } from "@acme/shared/env";
 import { createCacheMiddleware } from "trpc-redis-cache";
 
+import { extractLinkedInJobId } from "../../utils/linkedin-url-parser";
+
 // Use a global cache for app search results with custom key function
 export const globalCacheMiddleware: any = createCacheMiddleware({
   ttl: undefined, // Permanent cache
@@ -21,25 +23,25 @@ export const scanJobCacheMiddleware: any = createCacheMiddleware({
 
   redisUrl: env.REDIS_URL,
   getCacheKey(path, rawInput) {
-    const jobUrl = (rawInput as { jobUrl: string }).jobUrl;
-    if (jobUrl) {
-      const currentJobId = parseCurrentJobId(jobUrl);
-      return `${path}:${currentJobId}`;
+    const input = rawInput as {
+      jobUrl: string;
+      linkedinJobId?: string;
+    };
+
+    // Priority 1: Use linkedinJobId from payload if present
+    if (input.linkedinJobId) {
+      return `${path}:${input.linkedinJobId}`;
     }
-    return `${path}:${jobUrl}`;
+
+    // Priority 2: Extract job ID from URL using comprehensive parser
+    if (input.jobUrl) {
+      const extractedJobId = extractLinkedInJobId(input.jobUrl);
+      if (extractedJobId) {
+        return `${path}:${extractedJobId}`;
+      }
+    }
+
+    // Fallback: Use full URL if job ID cannot be extracted
+    return `${path}:${input.jobUrl || "unknown"}`;
   },
 });
-
-function parseCurrentJobId(url: string): string | null {
-  // https://www.linkedin.com/jobs/collections/recommended/?currentJobId=4331180022&start=24
-  // https://www.linkedin.com/jobs/search/?currentJobId=4299578137&distance=25&geoId=101950005&keywords=yaz%C4%B1l%C4%B1m&origin=JOB_COLLECTION_PAGE_KEYWORD_HISTORY&refresh=true
-
-  try {
-    const urlObj = new URL(url);
-    const currentJobId = urlObj.searchParams.get("currentJobId");
-    console.log("🚀 ~ parseCurrentJobId ~ currentJobId:", currentJobId);
-    return currentJobId ?? null;
-  } catch (error) {
-    return null;
-  }
-}

@@ -1128,6 +1128,73 @@ export async function extractJobDataFromPage(): Promise<JobData | null> {
 
     // Use current URL and clean query parameters
     const currentUrl = window.location.href;
+    
+    // Extract LinkedIn job ID from FULL URL FIRST (before cleaning)
+    // This is critical because some pages have job ID in query params (e.g., /jobs/collections/?currentJobId=123)
+    let linkedinJobId = extractLinkedInJobId(currentUrl);
+    
+    // Fallback 1: Try extracting from DOM data attributes if URL extraction failed
+    if (!linkedinJobId) {
+      // Try multiple data attributes that LinkedIn uses
+      const jobIdFromDom =
+        document.querySelector("[data-job-id]")?.getAttribute("data-job-id") ||
+        document.querySelector("[data-occludable-job-id]")?.getAttribute("data-occludable-job-id") ||
+        document.querySelector("button[data-job-id]")?.getAttribute("data-job-id") ||
+        document.querySelector("#jobs-apply-button-id")?.getAttribute("data-job-id");
+      
+      if (jobIdFromDom) {
+        linkedinJobId = jobIdFromDom;
+      }
+    }
+    
+    // Fallback 2: Try extracting from button IDs or other elements
+    if (!linkedinJobId) {
+      const applyButton = document.querySelector("#jobs-apply-button-id");
+      if (applyButton) {
+        const buttonJobId = applyButton.getAttribute("data-job-id");
+        if (buttonJobId) {
+          linkedinJobId = buttonJobId;
+        }
+      }
+    }
+    
+    // Fallback 3: Try extracting from any link hrefs that contain job IDs
+    if (!linkedinJobId) {
+      const jobLinks = document.querySelectorAll('a[href*="/jobs/view/"]');
+      for (const link of Array.from(jobLinks)) {
+        const href = link.getAttribute("href");
+        if (href) {
+          const extracted = extractLinkedInJobId(href);
+          if (extracted) {
+            linkedinJobId = extracted;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Fallback 4: Direct extraction from window.location.search (last resort)
+    if (!linkedinJobId && window.location.search) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const currentJobId = searchParams.get("currentJobId");
+      if (currentJobId) {
+        linkedinJobId = currentJobId;
+      }
+    }
+    
+    // Log warning if we still couldn't extract job ID (should never happen, but helps with debugging)
+    if (!linkedinJobId) {
+      extensionLoggerContent.warn(
+        "[LinkedIn Scam Detector] Could not extract LinkedIn job ID from URL or DOM",
+        {
+          url: currentUrl,
+          pathname: window.location.pathname,
+          search: window.location.search,
+        }
+      );
+    }
+    
+    // Now clean the URL for storage/display (remove query params)
     let url = currentUrl;
     try {
       // Remove query parameters, keep pathname
@@ -1141,9 +1208,6 @@ export async function extractJobDataFromPage(): Promise<JobData | null> {
       // If URL parsing fails, use original
       url = currentUrl;
     }
-
-    // Extract LinkedIn job ID from URL
-    const linkedinJobId = extractLinkedInJobId(url);
 
     // Extract salary if available
     const salaryElement = findElement(document, SELECTORS.salary);
