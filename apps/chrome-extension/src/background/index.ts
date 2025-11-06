@@ -6,6 +6,7 @@
 import { FEATURE_FLAG_KEYS } from "@acme/shared";
 import { Storage } from "@plasmohq/storage";
 
+import { discoveredJobsCache } from "../lib/storage/discovered-jobs-cache";
 import { getCachedFeatureFlags } from "../lib/storage/feature-flags-cache";
 
 import { extensionLoggerBackground } from "@/shared/loggers";
@@ -19,6 +20,26 @@ export const storage = new Storage();
 
 // Initialize session manager on startup
 extensionLoggerBackground.info("Background service worker starting");
+
+// Cleanup old discovered jobs cache entries on startup
+const cleanupDiscoveredJobsCache = async () => {
+  try {
+    const removed = await discoveredJobsCache.cleanup();
+    if (removed > 0) {
+      extensionLoggerBackground.info(
+        `Cleaned up ${removed} expired discovered jobs cache entries`
+      );
+    }
+  } catch (error) {
+    extensionLoggerBackground.warn(
+      "Failed to cleanup discovered jobs cache:",
+      error
+    );
+  }
+};
+
+// Run cleanup on startup
+cleanupDiscoveredJobsCache();
 
 /**
  * Get cached feature flags (uses cache with TTL)
