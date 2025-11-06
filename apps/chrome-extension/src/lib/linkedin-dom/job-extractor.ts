@@ -2,6 +2,73 @@ import { findElement, SELECTORS } from "./selectors";
 import type { JobData } from "./types";
 
 /**
+ * Extract LinkedIn job ID from URL
+ */
+function extractLinkedInJobId(url: string): string | undefined {
+  // Try direct view format: /jobs/view/123456
+  const directMatch = url.match(/\/jobs\/view\/(\d+)/);
+  if (directMatch?.[1]) {
+    return directMatch[1];
+  }
+
+  // Try collections format: /jobs/collections/recommended/?currentJobId=123456
+  try {
+    const urlObj = new URL(url);
+    const currentJobId = urlObj.searchParams.get("currentJobId");
+    if (currentJobId) {
+      return currentJobId;
+    }
+  } catch {
+    // Invalid URL, continue
+  }
+
+  return undefined;
+}
+
+/**
+ * Extract employment type from job insights
+ */
+function extractEmploymentType(container: HTMLElement | Document): string | undefined {
+  // Look for job insights that might contain employment type
+  const insights = container.querySelectorAll(".job-details-jobs-unified-top-card__job-insight");
+  for (const insight of insights) {
+    const text = insight.textContent?.trim().toLowerCase() || "";
+    if (text.includes("full-time") || text.includes("full time")) {
+      return "Full-time";
+    }
+    if (text.includes("part-time") || text.includes("part time")) {
+      return "Part-time";
+    }
+    if (text.includes("contract")) {
+      return "Contract";
+    }
+    if (text.includes("temporary") || text.includes("temp")) {
+      return "Temporary";
+    }
+    if (text.includes("internship")) {
+      return "Internship";
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Extract posted date if available
+ */
+function extractPostedDate(container: HTMLElement | Document): string | undefined {
+  // Look for "Posted X days ago" or similar patterns
+  const insightElements = container.querySelectorAll(".job-details-jobs-unified-top-card__job-insight, .jobs-unified-top-card__primary-description-without-tagline");
+  for (const element of insightElements) {
+    const text = element.textContent?.trim() || "";
+    // Match patterns like "Posted 2 days ago", "2 days ago", etc.
+    if (text.toLowerCase().includes("posted") || text.match(/\d+\s+(day|days|week|weeks|month|months)\s+ago/i)) {
+      return text;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Extract job data from a job card element (search results)
  */
 export function extractJobDataFromCard(
@@ -27,6 +94,9 @@ export function extractJobDataFromCard(
     ) as HTMLAnchorElement | null;
     const url = linkElement?.href || window.location.href;
 
+    // Extract LinkedIn job ID from URL
+    const linkedinJobId = extractLinkedInJobId(url);
+
     // Extract description (may be truncated in cards)
     const descriptionElement = findElement(
       cardElement,
@@ -42,6 +112,12 @@ export function extractJobDataFromCard(
     const locationElement = findElement(cardElement, SELECTORS.location);
     const location = locationElement?.textContent?.trim();
 
+    // Extract employment type
+    const employmentType = extractEmploymentType(cardElement);
+
+    // Extract posted date
+    const postedDate = extractPostedDate(cardElement);
+
     return {
       title,
       company,
@@ -49,6 +125,9 @@ export function extractJobDataFromCard(
       url,
       salary,
       location,
+      employmentType,
+      postedDate,
+      linkedinJobId,
     };
   } catch (error) {
     console.error("[LinkedIn Scam Detector] Error extracting job data:", error);
@@ -80,6 +159,9 @@ export function extractJobDataFromPage(): JobData | null {
     // Use current URL
     const url = window.location.href;
 
+    // Extract LinkedIn job ID from URL
+    const linkedinJobId = extractLinkedInJobId(url);
+
     // Extract salary if available
     const salaryElement = findElement(document, SELECTORS.salary);
     const salary = salaryElement?.textContent?.trim();
@@ -88,6 +170,12 @@ export function extractJobDataFromPage(): JobData | null {
     const locationElement = findElement(document, SELECTORS.location);
     const location = locationElement?.textContent?.trim();
 
+    // Extract employment type
+    const employmentType = extractEmploymentType(document);
+
+    // Extract posted date
+    const postedDate = extractPostedDate(document);
+
     return {
       title,
       company,
@@ -95,6 +183,9 @@ export function extractJobDataFromPage(): JobData | null {
       url,
       salary,
       location,
+      employmentType,
+      postedDate,
+      linkedinJobId,
     };
   } catch (error) {
     console.error("[LinkedIn Scam Detector] Error extracting job data:", error);

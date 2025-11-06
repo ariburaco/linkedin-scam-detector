@@ -3,6 +3,11 @@ export interface JobData {
   title: string;
   company: string;
   salary?: string;
+  location?: string;
+  employmentType?: string;
+  postedDate?: string;
+  linkedinJobId?: string;
+  url?: string;
 }
 
 export interface LocalRuleFlag {

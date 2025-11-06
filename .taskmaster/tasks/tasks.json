@@ -127,11 +127,24 @@
         ],
         "status": "done",
         "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Implement Job Data Storage and Scraping",
+        "description": "Extend the content script to scrape detailed job information from LinkedIn pages and create a new backend service to store this data in the database.",
+        "details": "First, update the database schema (likely `db/schema.prisma`) to include a new `Job` model. This model should store fields such as `linkedinJobId` (string, unique), `title`, `company`, `location`, `description` (full text), `url`, `employmentType`, and a JSON field for `fullJobDetails`. Run `prisma migrate dev` to apply the changes. Second, create a new tRPC mutation, `saveJob`, in the appropriate backend router. This mutation will accept the scraped job data and use `prisma.job.upsert` to either create a new job entry or update an existing one based on the `linkedinJobId`. Third, enhance the content script (`src/content/linkedin-scanner.tsx`) to extract the additional job details (company name, location, employment type, etc.) from the DOM alongside the description text already being extracted. Finally, update the background worker (`src/background/index.ts`) to call the new `saveJob` tRPC mutation with the full scraped data object, in addition to the existing scam analysis flow.",
+        "testStrategy": "Verify the new `Job` table is created in the database after running the migration. Manually trigger the scraper on a LinkedIn job page and check the browser's developer tools to ensure the `saveJob` tRPC mutation is called with the correct and complete payload. Query the database directly to confirm that a new record has been created in the `Job` table with all the extracted fields populated correctly. Test the `upsert` functionality by reloading the same job page and verifying the existing record is updated (e.g., the `updatedAt` timestamp changes) rather than creating a duplicate entry. Ensure this new data collection process does not negatively impact the performance of the primary scam detection feature.",
+        "status": "in-progress",
+        "dependencies": [
+          7
+        ],
+        "priority": "medium",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-11-04T19:43:05.465Z",
-      "updated": "2025-11-04T20:37:25.944Z",
+      "updated": "2025-11-06T05:06:59.738Z",
       "description": "Tasks for master context"
     }
   }

@@ -5,10 +5,15 @@ import {
   buildFallbackPrompt,
   buildScamDetectionPrompt,
 } from "../prompts/scam-detection";
+import { buildJobExtractionPrompt } from "../prompts/job-extraction";
 import {
   scamAnalysisSchema,
   type ScamAnalysisResult,
 } from "../schemas/scam-analysis";
+import {
+  jobExtractionSchema,
+  type JobExtractionResult,
+} from "../schemas/job-extraction";
 
 export interface AnalyzeJobOptions {
   jobText: string;
@@ -120,6 +125,61 @@ export class AIService {
     }
 
     return false;
+  }
+
+  /**
+   * Extract structured job data from job posting
+   * This extracts requirements, responsibilities, benefits, skills, etc.
+   */
+  async extractJobData(options: AnalyzeJobOptions): Promise<JobExtractionResult> {
+    const { jobText, jobTitle, companyName } = options;
+
+    // Use job extraction prompt
+    const prompt = buildJobExtractionPrompt({
+      jobText,
+      jobTitle,
+      companyName,
+    });
+
+    // Retry logic for API calls
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+      try {
+        const result = await generateObject({
+          model: this.model,
+          schema: jobExtractionSchema,
+          prompt,
+          temperature: 0.2, // Lower temperature for more consistent extraction
+          maxOutputTokens: 3000, // More tokens for detailed extraction
+        });
+
+        return result.object;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Log error for debugging
+        console.error(
+          `[AIService] Extraction attempt ${attempt + 1} failed:`,
+          lastError.message
+        );
+
+        // Don't retry on certain errors
+        if (this.shouldNotRetry(lastError)) {
+          throw lastError;
+        }
+
+        // Wait before retrying (exponential backoff)
+        if (attempt < this.maxRetries - 1) {
+          await this.delay(this.retryDelay * Math.pow(2, attempt));
+        }
+      }
+    }
+
+    // If all retries failed, throw the last error
+    throw new Error(
+      `Failed to extract job data after ${this.maxRetries} attempts: ${lastError?.message}`
+    );
   }
 
   /**

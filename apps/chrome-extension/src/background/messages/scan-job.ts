@@ -6,6 +6,7 @@ import {
   incrementScannedToday,
   incrementThreatsBlocked,
 } from "@/lib/utils/stats";
+import { getSession } from "@/shared/sessionManager";
 import { callerApi } from "@/trpc/caller";
 
 export interface ScanJobRequestBody {
@@ -90,6 +91,48 @@ const handler: PlasmoMessaging.MessageHandler<
     incrementScannedToday().catch((err) => {
       console.error("[scan-job] Failed to track scan:", err);
     });
+
+    // Step 2.5: Save job data to database first
+    // Get session to pass to saveJob (if authenticated)
+    const session = await getSession().catch(() => null);
+    
+    // Save job to database
+    callerApi.scamDetector.saveJob
+      .mutate({
+        linkedinJobId: jobData.linkedinJobId,
+        url: jobUrl,
+        title: jobData.title,
+        company: jobData.company || "",
+        description: jobData.description || "",
+        location: jobData.location,
+        salary: jobData.salary,
+        employmentType: jobData.employmentType,
+        postedDate: jobData.postedDate,
+        rawData: {
+          // Store any additional fields in rawData
+          linkedinJobId: jobData.linkedinJobId,
+        },
+      })
+      .then(async (saveResult) => {
+        // After saving job, extract structured data using AI
+        if (saveResult.jobId) {
+          callerApi.scamDetector.extractJobData
+            .mutate({
+              jobId: saveResult.jobId,
+              jobText: jobData.description || "",
+              jobTitle: jobData.title,
+              companyName: jobData.company,
+            })
+            .catch((extractError) => {
+              // Log but don't fail if extraction fails
+              console.error("[scan-job] Job extraction failed:", extractError);
+            });
+        }
+      })
+      .catch((saveError) => {
+        // Log but don't fail if save fails
+        console.error("[scan-job] Failed to save job:", saveError);
+      });
 
     // Step 3: Run full AI analysis asynchronously (don't await in handler)
     // Send final result via chrome.tabs.sendMessage to the content script

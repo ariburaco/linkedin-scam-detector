@@ -1,0 +1,88 @@
+model Job {
+  id             String    @id @default(cuid())
+  linkedinJobId  String?   @unique @db.VarChar(100)
+  jobUrlHash     String    @db.VarChar(64)
+  url            String    @db.Text
+  title          String    @db.VarChar(500)
+  company        String    @db.VarChar(500)
+  description    String    @db.Text
+  location       String?   @db.VarChar(500)
+  salary         String?   @db.VarChar(200)
+  employmentType String?   @db.VarChar(100)
+  postedAt       DateTime?
+  scrapedAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  scrapedBy      String? // User ID who scraped this job (nullable for anonymous scrapes)
+  rawData        Json? // Store any additional scraped data not in structured fields
+
+  // Relations
+  analyses    JobAnalysis[]
+  extractions JobExtraction[]
+
+  @@index([jobUrlHash])
+  @@index([company])
+  @@index([linkedinJobId])
+  @@index([scrapedBy])
+  @@map("scam_detector_job")
+}
+
+model JobAnalysis {
+  id               String   @id @default(cuid())
+  jobId            String
+  job              Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  riskScore        Int
+  riskLevel        String   @db.VarChar(20) // safe, caution, danger
+  flags            Json // Array of flag objects
+  summary          String?  @db.Text
+  analysisSource   String   @db.VarChar(50) // gemini, cache, fallback, local
+  localRulesResult Json? // Store preliminary local rules result if available
+  analyzedAt       DateTime @default(now())
+
+  @@index([jobId])
+  @@index([analyzedAt])
+  @@index([riskLevel])
+  @@map("scam_detector_job_analysis")
+}
+
+model JobExtraction {
+  id    String @id @default(cuid())
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  // Extracted structured data
+  requirements     Json? // Array of requirements (skills, experience, education, etc.)
+  responsibilities Json? // Array of job responsibilities
+  benefits         Json? // Array of benefits/perks
+  qualifications   Json? // Array of qualifications
+
+  // Structured salary data
+  salaryMin      Float?
+  salaryMax      Float?
+  salaryCurrency String? @db.VarChar(10) // USD, EUR, etc.
+  salaryPeriod   String? @db.VarChar(20) // hourly, monthly, yearly
+
+  // Experience and education
+  experienceLevel String? @db.VarChar(50) // entry, mid, senior, executive
+  educationLevel  String? @db.VarChar(100) // high-school, bachelor, master, phd
+
+  // Work details
+  workType     String? @db.VarChar(50) // remote, hybrid, on-site
+  workSchedule String? @db.VarChar(50) // full-time, part-time, contract, etc.
+
+  // Extracted skills (structured)
+  skills Json? // Array of {name, category, required, experience}
+
+  // Full extraction result (for flexibility)
+  extractedData Json? // Complete extraction result with all parsed information
+
+  // Metadata
+  extractedAt      DateTime @default(now())
+  extractionModel  String?  @db.VarChar(100) // Model used for extraction (e.g., gemini-2.0-flash-exp)
+  extractionSource String   @default("gemini") @db.VarChar(50) // gemini, manual, etc.
+
+  @@index([jobId])
+  @@index([extractedAt])
+  @@index([experienceLevel])
+  @@index([workType])
+  @@map("scam_detector_job_extraction")
+}
