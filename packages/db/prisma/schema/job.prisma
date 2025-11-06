@@ -15,6 +15,7 @@ model Job {
   scrapedBy      String? // User ID who scraped this job (nullable for anonymous scrapes)
   rawData        Json? // Store any additional scraped data not in structured fields
   embedding      Unsupported("vector(768)")? // Vector embedding for semantic search (Gemini embedding-004)
+  metadata       Json? // Store LLM cost and usage metadata (tokens, costs, model info, etc.)
 
   // Relations
   analyses    JobAnalysis[]
@@ -37,6 +38,7 @@ model JobAnalysis {
   summary          String?  @db.Text
   analysisSource   String   @db.VarChar(50) // gemini, cache, fallback, local
   localRulesResult Json? // Store preliminary local rules result if available
+  metadata         Json? // Store LLM cost and usage metadata (tokens, costs, model info, etc.)
   analyzedAt       DateTime @default(now())
 
   @@index([jobId])
@@ -83,6 +85,7 @@ model JobExtraction {
   extractedAt      DateTime @default(now())
   extractionModel  String?  @db.VarChar(100) // Model used for extraction (e.g., gemini-2.0-flash-exp)
   extractionSource String   @default("gemini") @db.VarChar(50) // gemini, manual, etc.
+  metadata         Json? // Store LLM cost and usage metadata (tokens, costs, model info, etc.)
 
   @@index([jobId])
   @@index([extractedAt])

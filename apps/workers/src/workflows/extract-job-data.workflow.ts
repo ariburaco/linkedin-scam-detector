@@ -72,11 +72,13 @@ export async function ExtractJobData(
   }
   // Continue even if embedding generation fails - it's optional
 
-  // Step 3: Save extraction and embedding to database
+  // Step 3: Save extraction and embedding to database (with cost metadata)
   const saveResult = await saveJobExtraction({
     jobId: input.jobId,
     extractionResult: extractionResult.extractionResult,
     structuredEmbedding,
+    extractionCostMetadata: extractionResult.costMetadata,
+    embeddingCostMetadata: embeddingResult.costMetadata,
   });
 
   if (!saveResult.success) {

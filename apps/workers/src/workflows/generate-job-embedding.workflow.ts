@@ -62,10 +62,11 @@ export async function GenerateJobEmbedding(
     };
   }
 
-  // Step 2: Save embedding to database
+  // Step 2: Save embedding to database (with cost metadata)
   const saveResult = await saveJobEmbedding({
     jobId: input.jobId,
     embedding: generateResult.embedding,
+    costMetadata: generateResult.costMetadata,
   });
 
   if (!saveResult.success) {

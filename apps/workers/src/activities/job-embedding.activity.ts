@@ -3,7 +3,7 @@
  * Activities for generating and saving job embeddings
  */
 
-import prisma from '@acme/db';
+import { JobService } from '@acme/api/services/job.service';
 import { embeddingService } from '@acme/api/services/embedding.service';
 import { Logger } from '@acme/shared/Logger';
 
@@ -19,6 +19,7 @@ export interface GenerateJobEmbeddingInput {
 export interface GenerateJobEmbeddingOutput {
   success: boolean;
   embedding?: number[];
+  costMetadata?: unknown; // Cost metadata from embedding service
   error?: string;
 }
 
@@ -35,7 +36,7 @@ export async function generateJobEmbedding(
       company: input.company,
     });
 
-    const embedding = await embeddingService.embedJob({
+    const result = await embeddingService.embedJob({
       title: input.title,
       company: input.company,
       description: input.description,
@@ -43,12 +44,14 @@ export async function generateJobEmbedding(
 
     logger.info('Job embedding generated successfully', {
       jobId: input.jobId,
-      embeddingLength: embedding.length,
+      embeddingLength: result.embedding.length,
+      cost: result.costMetadata?.cost?.totalCost,
     });
 
     return {
       success: true,
-      embedding,
+      embedding: result.embedding,
+      costMetadata: result.costMetadata,
     };
   } catch (error) {
     const errorMessage =
@@ -68,6 +71,7 @@ export async function generateJobEmbedding(
 export interface SaveJobEmbeddingInput {
   jobId: string;
   embedding: number[];
+  costMetadata?: unknown; // Cost metadata to store
 }
 
 export interface SaveJobEmbeddingOutput {
@@ -87,14 +91,11 @@ export async function saveJobEmbedding(
       embeddingLength: input.embedding.length,
     });
 
-    // Format embedding as PostgreSQL vector: '[1,2,3,...]'
-    const vectorString = `[${input.embedding.join(',')}]`;
-
-    // Update embedding using raw SQL
-    await prisma.$executeRawUnsafe(
-      `UPDATE scam_detector_job SET embedding = $1::vector WHERE id = $2`,
-      vectorString,
-      input.jobId
+    // Update embedding and metadata using service
+    await JobService.updateEmbeddingAndMetadata(
+      input.jobId,
+      input.embedding,
+      input.costMetadata || undefined
     );
 
     logger.info('Job embedding saved successfully', {

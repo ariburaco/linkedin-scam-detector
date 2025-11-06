@@ -3,11 +3,13 @@
  * Activities for extracting structured job data using AI and saving embeddings
  */
 
-import prisma from '@acme/db';
+import { JobService } from '@acme/api/services/job.service';
+import { JobExtractionService } from '@acme/api/services/job-extraction.service';
 import { aiService } from '@acme/api/services/ai.service';
 import { embeddingService } from '@acme/api/services/embedding.service';
 import { Logger } from '@acme/shared/Logger';
 import type { JobExtractionResult } from '@acme/api/schemas/job-extraction';
+import type { InputJsonValue } from '@acme/db';
 
 const logger = new Logger('JobExtractionActivity');
 
@@ -21,6 +23,7 @@ export interface ExtractJobDataInput {
 export interface ExtractJobDataOutput {
   success: boolean;
   extractionResult?: JobExtractionResult;
+  costMetadata?: unknown; // Cost metadata from extraction
   error?: string;
 }
 
@@ -42,10 +45,7 @@ export async function extractJobDataWithAI(
     let companyName = input.companyName;
 
     if (!jobTitle || !companyName) {
-      const job = await prisma.job.findUnique({
-        where: { id: input.jobId },
-        select: { title: true, company: true },
-      });
+      const job = await JobService.findById(input.jobId);
 
       if (!job) {
         throw new Error(`Job not found: ${input.jobId}`);
@@ -55,7 +55,7 @@ export async function extractJobDataWithAI(
       companyName = companyName || job.company;
     }
 
-    const extractionResult = await aiService.extractJobData({
+    const result = await aiService.extractJobData({
       jobText: input.jobText,
       jobTitle,
       companyName,
@@ -63,13 +63,15 @@ export async function extractJobDataWithAI(
 
     logger.info('Job data extracted successfully', {
       jobId: input.jobId,
-      hasRequirements: !!extractionResult.requirements?.length,
-      hasSkills: !!extractionResult.skills?.length,
+      hasRequirements: !!result.result.requirements?.length,
+      hasSkills: !!result.result.skills?.length,
+      cost: result.costMetadata?.cost?.totalCost,
     });
 
     return {
       success: true,
-      extractionResult,
+      extractionResult: result.result,
+      costMetadata: result.costMetadata,
     };
   } catch (error) {
     const errorMessage =
@@ -93,6 +95,7 @@ export interface GenerateStructuredEmbeddingInput {
 export interface GenerateStructuredEmbeddingOutput {
   success: boolean;
   embedding?: number[];
+  costMetadata?: unknown; // Cost metadata from embedding
   error?: string;
 }
 
@@ -105,17 +108,19 @@ export async function generateStructuredEmbedding(
   try {
     logger.info('Generating structured embedding from extraction data');
 
-    const embedding = await embeddingService.embedStructuredData(
+    const result = await embeddingService.embedStructuredData(
       input.extractionResult
     );
 
     logger.info('Structured embedding generated successfully', {
-      embeddingLength: embedding.length,
+      embeddingLength: result.embedding.length,
+      cost: result.costMetadata?.cost?.totalCost,
     });
 
     return {
       success: true,
-      embedding,
+      embedding: result.embedding,
+      costMetadata: result.costMetadata,
     };
   } catch (error) {
     const errorMessage =
@@ -136,6 +141,8 @@ export interface SaveJobExtractionInput {
   jobId: string;
   extractionResult: JobExtractionResult;
   structuredEmbedding?: number[];
+  extractionCostMetadata?: unknown; // Cost metadata from extraction
+  embeddingCostMetadata?: unknown; // Cost metadata from embedding
 }
 
 export interface SaveJobExtractionOutput {
@@ -156,38 +163,29 @@ export async function saveJobExtraction(
       hasStructuredEmbedding: !!input.structuredEmbedding,
     });
 
-    // Save extraction to database
-    const extraction = await prisma.jobExtraction.create({
-      data: {
+    // Combine cost metadata (extraction + embedding if available)
+    const combinedMetadata: Record<string, unknown> = {};
+    if (input.extractionCostMetadata) {
+      combinedMetadata.extraction = input.extractionCostMetadata;
+    }
+    if (input.embeddingCostMetadata) {
+      combinedMetadata.embedding = input.embeddingCostMetadata;
+    }
+
+    // Save extraction to database using service
+    const extraction = await JobExtractionService.createWithEmbedding(
+      {
         jobId: input.jobId,
-        ...input.extractionResult,
-        extractedData: input.extractionResult, // Store full result for flexibility
+        extractionResult: input.extractionResult,
         extractionModel: 'gemini-2.0-flash-exp',
         extractionSource: 'gemini',
+        metadata:
+          Object.keys(combinedMetadata).length > 0
+            ? (combinedMetadata as InputJsonValue)
+            : undefined,
       },
-    });
-
-    // If structured embedding was generated, save it using raw SQL
-    if (input.structuredEmbedding) {
-      try {
-        const vectorString = `[${input.structuredEmbedding.join(',')}]`;
-        await prisma.$executeRawUnsafe(
-          `UPDATE scam_detector_job_extraction SET structured_embedding = $1::vector WHERE id = $2`,
-          vectorString,
-          extraction.id
-        );
-
-        logger.info('Structured embedding saved successfully', {
-          extractionId: extraction.id,
-        });
-      } catch (error) {
-        // Log but don't fail - embedding is optional
-        logger.warn('Failed to save structured embedding', {
-          extractionId: extraction.id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    }
+      input.structuredEmbedding
+    );
 
     logger.info('Job extraction saved successfully', {
       extractionId: extraction.id,

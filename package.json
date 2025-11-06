@@ -46,7 +46,7 @@
     "dev:web": "turbo -F @acme/web dev",
     "dev:chrome-extension": "turbo -F @acme/chrome-extension dev",
     "dev:workers": "turbo -F @acme/workers dev",
-    "db:push": "turbo -F @acme/db db:push",
+    "db:push": "turbo -F @acme/db db:push --",
     "db:studio": "turbo -F @acme/db db:studio",
     "db:generate": "turbo -F @acme/db db:generate",
     "db:migrate": "turbo -F @acme/db db:migrate",

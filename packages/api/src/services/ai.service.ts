@@ -14,12 +14,27 @@ import {
   jobExtractionSchema,
   type JobExtractionResult,
 } from "../schemas/job-extraction";
+import {
+  calculateCost,
+  extractUsageFromResponse,
+  type CostMetadata,
+} from "../utils/llm-cost-calculator";
 
 export interface AnalyzeJobOptions {
   jobText: string;
   jobTitle?: string;
   companyName?: string;
   jobUrl?: string;
+}
+
+export interface AnalyzeJobResult {
+  result: ScamAnalysisResult;
+  costMetadata: CostMetadata | null;
+}
+
+export interface ExtractJobDataResult {
+  result: JobExtractionResult;
+  costMetadata: CostMetadata | null;
 }
 
 /**
@@ -43,7 +58,9 @@ export class AIService {
   /**
    * Analyze a job posting for scam indicators
    */
-  async analyzeJob(options: AnalyzeJobOptions): Promise<ScamAnalysisResult> {
+  async analyzeJob(
+    options: AnalyzeJobOptions
+  ): Promise<AnalyzeJobResult> {
     const { jobText, jobTitle, companyName } = options;
 
     // Use centralized prompt builder
@@ -72,7 +89,18 @@ export class AIService {
           maxOutputTokens: 2000, // AI SDK v5 uses maxOutputTokens instead of maxTokens
         });
 
-        return result.object;
+        // Extract usage and calculate cost
+        const usage = extractUsageFromResponse(result);
+        const costMetadata = calculateCost(
+          "gemini-2.0-flash-exp",
+          usage,
+          "scam-analysis"
+        );
+
+        return {
+          result: result.object,
+          costMetadata,
+        };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -131,7 +159,9 @@ export class AIService {
    * Extract structured job data from job posting
    * This extracts requirements, responsibilities, benefits, skills, etc.
    */
-  async extractJobData(options: AnalyzeJobOptions): Promise<JobExtractionResult> {
+  async extractJobData(
+    options: AnalyzeJobOptions
+  ): Promise<ExtractJobDataResult> {
     const { jobText, jobTitle, companyName } = options;
 
     // Use job extraction prompt
@@ -154,7 +184,18 @@ export class AIService {
           maxOutputTokens: 3000, // More tokens for detailed extraction
         });
 
-        return result.object;
+        // Extract usage and calculate cost
+        const usage = extractUsageFromResponse(result);
+        const costMetadata = calculateCost(
+          "gemini-2.0-flash-exp",
+          usage,
+          "job-extraction"
+        );
+
+        return {
+          result: result.object,
+          costMetadata,
+        };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 

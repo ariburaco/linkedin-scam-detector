@@ -9,15 +9,3 @@ model Feedback {
   @@index([feedbackType])
   @@map("scam_detector_feedback")
 }
-
-model ScanCache {
-  id         String   @id @default(cuid())
-  jobUrlHash String   @unique @db.VarChar(64)
-  riskScore  Int
-  flags      Json
-  scannedAt  DateTime @default(now())
-  expiresAt  DateTime
-
-  @@index([jobUrlHash, expiresAt])
-  @@map("scam_detector_scan_cache")
-}

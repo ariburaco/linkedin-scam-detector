@@ -1,6 +1,8 @@
-import prisma from "@acme/db";
+import prisma, { type InputJsonValue } from "@acme/db";
 
 import { embeddingService } from "./embedding.service";
+import { JobExtractionService } from "./job-extraction.service";
+import { JobService } from "./job.service";
 
 /**
  * Batch Embedding Service
@@ -58,18 +60,19 @@ export class BatchEmbeddingService {
           batch.map(async (job) => {
             try {
               // Generate embedding
-              const embedding = await embeddingService.embedJob({
+              const result = await embeddingService.embedJob({
                 title: job.title,
                 company: job.company,
                 description: job.description,
               });
 
-              // Update job with embedding using raw SQL
-              const vectorString = `[${embedding.join(",")}]`;
-              await prisma.$executeRawUnsafe(
-                `UPDATE scam_detector_job SET embedding = $1::vector WHERE id = $2`,
-                vectorString,
-                job.id
+              // Update job with embedding and cost metadata using service
+              await JobService.updateEmbeddingAndMetadata(
+                job.id,
+                result.embedding,
+                result.costMetadata
+                  ? (result.costMetadata as unknown as Record<string, unknown>)
+                  : undefined
               );
 
               success++;
@@ -161,7 +164,7 @@ export class BatchEmbeddingService {
           batch.map(async (extraction) => {
             try {
               // Generate structured embedding
-              const embedding = await embeddingService.embedStructuredData({
+              const result = await embeddingService.embedStructuredData({
                 skills: extraction.skills as
                   | Array<{
                       name: string;
@@ -186,13 +189,37 @@ export class BatchEmbeddingService {
                 workSchedule: extraction.workSchedule || undefined,
               });
 
-              // Update extraction with embedding using raw SQL
-              const vectorString = `[${embedding.join(",")}]`;
-              await prisma.$executeRawUnsafe(
-                `UPDATE scam_detector_job_extraction SET structured_embedding = $1::vector WHERE id = $2`,
-                vectorString,
-                extraction.id
+              // Update extraction with embedding using service
+              await JobExtractionService.updateStructuredEmbedding(
+                extraction.id,
+                result.embedding
               );
+
+              // Store cost metadata if available
+              if (result.costMetadata) {
+                // Get current extraction to merge metadata
+                const currentExtraction = await prisma.jobExtraction.findUnique(
+                  {
+                    where: { id: extraction.id },
+                    select: { metadata: true },
+                  }
+                );
+
+                const combinedMetadata = {
+                  ...((currentExtraction?.metadata as Record<
+                    string,
+                    unknown
+                  >) || {}),
+                  embedding: result.costMetadata,
+                };
+
+                await prisma.jobExtraction.update({
+                  where: { id: extraction.id },
+                  data: {
+                    metadata: combinedMetadata as unknown as InputJsonValue,
+                  },
+                });
+              }
 
               success++;
               processed++;

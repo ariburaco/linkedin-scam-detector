@@ -1,12 +1,15 @@
 import { createHash } from "crypto";
 
-import prisma from "@acme/db";
 import { z } from "zod";
 
 import { publicProcedure, router } from "../index";
+import type { ScamAnalysisResult } from "../schemas/scam-analysis";
 import { aiService } from "../services/ai.service";
 import { batchEmbeddingService } from "../services/batch-embedding.service";
-import { embeddingService } from "../services/embedding.service";
+import { FeedbackService } from "../services/feedback.service";
+import { JobAnalysisService } from "../services/job-analysis.service";
+import { JobSearchService } from "../services/job-search.service";
+import { JobService } from "../services/job.service";
 import { TemporalService } from "../services/temporal.service";
 import { parsePostedDate } from "../utils/date-utils";
 
@@ -41,49 +44,21 @@ export const scamDetectorRouter = router({
       // Get user ID from session if available (optional - can be null for anonymous scrapes)
       const scrapedBy = ctx.session?.user?.id || null;
 
-      // Try to find existing job by linkedinJobId or jobUrlHash
-      const existingJob = linkedinJobId
-        ? await prisma.job.findUnique({
-            where: { linkedinJobId },
-          })
-        : await prisma.job.findFirst({
-            where: { jobUrlHash },
-          });
-
-      let job;
-      if (existingJob) {
-        // Update existing job
-        const updateData = {
-          ...jobData,
-          linkedinJobId: linkedinJobId || existingJob.linkedinJobId,
-          jobUrlHash,
-          postedAt,
-          updatedAt: new Date(),
-          rawData:
-            input.rawData || (existingJob.rawData as Record<string, unknown>),
-          scrapedBy: scrapedBy || existingJob.scrapedBy,
-        };
-
-        job = await prisma.job.update({
-          where: { id: existingJob.id },
-          data: updateData,
-        });
-      } else {
-        // Create new job
-        const createData = {
-          linkedinJobId: linkedinJobId || null,
-          jobUrlHash,
-          url,
-          ...jobData,
-          postedAt,
-          scrapedBy,
-          rawData: input.rawData || undefined,
-        };
-
-        job = await prisma.job.create({
-          data: createData,
-        });
-      }
+      // Create or update job using service
+      const job = await JobService.createOrUpdate({
+        linkedinJobId: linkedinJobId || null,
+        jobUrlHash,
+        url,
+        title: jobData.title,
+        company: jobData.company,
+        description: jobData.description,
+        location: jobData.location || null,
+        salary: jobData.salary || null,
+        employmentType: jobData.employmentType || null,
+        postedAt,
+        scrapedBy,
+        rawData: input.rawData || null,
+      });
 
       // Trigger async embedding generation workflow (fire-and-forget)
       let workflowId: string | undefined;
@@ -119,10 +94,8 @@ export const scamDetectorRouter = router({
     .mutation(async ({ input }) => {
       const { jobId, jobText, jobTitle, companyName } = input;
 
-      // Check if job exists
-      const job = await prisma.job.findUnique({
-        where: { id: jobId },
-      });
+      // Check if job exists using service
+      const job = await JobService.findById(jobId);
 
       if (!job) {
         throw new Error("Job not found");
@@ -163,65 +136,8 @@ export const scamDetectorRouter = router({
     .query(async ({ input }) => {
       const { query, limit } = input;
 
-      // Generate embedding for the search query
-      let queryEmbedding: number[];
-      try {
-        queryEmbedding = await embeddingService.embedText({ text: query });
-      } catch (error) {
-        console.error(
-          "[searchJobs] Failed to generate query embedding:",
-          error
-        );
-        throw new Error(
-          "Failed to process search query. Please try again later."
-        );
-      }
-
-      // Format embedding as PostgreSQL vector
-      const vectorString = `[${queryEmbedding.join(",")}]`;
-
-      // Perform cosine similarity search using raw SQL
-      // Cosine distance (<->) returns smaller values for more similar vectors
-      const results = await prisma.$queryRaw<
-        Array<{
-          id: string;
-          title: string;
-          company: string;
-          description: string;
-          url: string;
-          location: string | null;
-          salary: string | null;
-          similarity: number;
-        }>
-      >`
-        SELECT 
-          id,
-          title,
-          company,
-          description,
-          url,
-          location,
-          salary,
-          1 - (embedding <-> ${vectorString}::vector) AS similarity
-        FROM scam_detector_job
-        WHERE embedding IS NOT NULL
-        ORDER BY embedding <-> ${vectorString}::vector
-        LIMIT ${limit}
-      `;
-
-      return {
-        results: results.map((r) => ({
-          id: r.id,
-          title: r.title,
-          company: r.company,
-          description: r.description,
-          url: r.url,
-          location: r.location,
-          salary: r.salary,
-          similarity: Number(r.similarity), // Convert to number (0-1, higher = more similar)
-        })),
-        count: results.length,
-      };
+      // Use search service
+      return await JobSearchService.searchJobs({ query, limit });
     }),
 
   // Scan a job posting
@@ -240,39 +156,21 @@ export const scamDetectorRouter = router({
       // 1. Generate URL hash
       const jobUrlHash = createHash("sha256").update(jobUrl).digest("hex");
 
-      // 2. Check database cache (24-hour TTL)
-      const cached = await prisma.scanCache.findUnique({
-        where: { jobUrlHash },
-      });
-
-      if (cached && cached.expiresAt > new Date()) {
-        return {
-          riskScore: cached.riskScore,
-          riskLevel:
-            cached.riskScore < 40
-              ? "safe"
-              : cached.riskScore < 70
-                ? "caution"
-                : "danger",
-          flags: cached.flags as Array<{
-            type: string;
-            confidence: "low" | "medium" | "high";
-            message: string;
-            reasoning?: string;
-          }>,
-          summary: "Analysis retrieved from cache",
-          source: "cache",
-        };
-      }
+      // 2. Check if job exists and has recent analysis (tRPC middleware handles Redis caching)
+      // Try to find job first
+      const job = await JobService.findLatestByUrlHash(jobUrlHash);
 
       // 3. Call Gemini 2.0 Flash via AI Service
-      let geminiResult;
+      let geminiResult: ScamAnalysisResult;
+      let costMetadata: { cost?: { totalCost?: number } } | null = null;
       try {
-        geminiResult = await aiService.analyzeJob({
+        const analysisResult = await aiService.analyzeJob({
           jobText,
           companyName,
           jobUrl,
         });
+        geminiResult = analysisResult.result;
+        costMetadata = analysisResult.costMetadata;
       } catch (error) {
         console.error("[scamDetectorRouter] AI analysis failed:", error);
         // Return fallback result instead of throwing
@@ -294,41 +192,30 @@ export const scamDetectorRouter = router({
         };
       }
 
-      // 4. Cache result in database (24-hour TTL)
-      await prisma.scanCache.create({
-        data: {
-          jobUrlHash,
-          riskScore: geminiResult.riskScore,
-          flags: geminiResult.flags,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        },
-      });
-
-      // 5. Try to save analysis to JobAnalysis if job exists
-      try {
-        const job = await prisma.job.findFirst({
-          where: { jobUrlHash },
-          orderBy: { scrapedAt: "desc" },
-        });
-
-        if (job) {
-          await prisma.jobAnalysis.create({
-            data: {
-              jobId: job.id,
-              riskScore: geminiResult.riskScore,
-              riskLevel: geminiResult.riskLevel,
-              flags: geminiResult.flags,
-              summary: geminiResult.summary,
-              analysisSource: "gemini",
-            },
+      // 4. Save analysis to JobAnalysis (always create new analysis record)
+      // If job exists, link it; if not, we still track the scan by URL hash
+      if (job) {
+        try {
+          await JobAnalysisService.create({
+            jobId: job.id,
+            riskScore: geminiResult.riskScore,
+            riskLevel: geminiResult.riskLevel,
+            flags: geminiResult.flags,
+            summary: geminiResult.summary,
+            analysisSource: "gemini",
+            metadata: costMetadata
+              ? (JSON.parse(
+                  JSON.stringify(costMetadata)
+                ) as typeof costMetadata)
+              : undefined,
           });
+        } catch (error) {
+          // Log but don't fail the request if JobAnalysis save fails
+          console.error(
+            "[scamDetectorRouter] Failed to save JobAnalysis:",
+            error
+          );
         }
-      } catch (error) {
-        // Log but don't fail the request if JobAnalysis save fails
-        console.error(
-          "[scamDetectorRouter] Failed to save JobAnalysis:",
-          error
-        );
       }
 
       // 6. Return result
@@ -348,12 +235,10 @@ export const scamDetectorRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      await prisma.feedback.create({
-        data: {
-          jobUrlHash: input.jobUrlHash,
-          feedbackType: input.feedbackType,
-          details: input.details,
-        },
+      await FeedbackService.create({
+        jobUrlHash: input.jobUrlHash,
+        feedbackType: input.feedbackType,
+        details: input.details || null,
       });
 
       return { success: true };

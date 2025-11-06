@@ -1,9 +1,20 @@
 import { google } from "@ai-sdk/google";
 import { embed } from "ai";
 
+import {
+  calculateCost,
+  extractEmbeddingUsageFromResponse,
+  type CostMetadata,
+} from "../utils/llm-cost-calculator";
+
 export interface EmbeddingOptions {
   text: string;
   model?: string;
+}
+
+export interface EmbedTextResult {
+  embedding: number[];
+  costMetadata: CostMetadata | null;
 }
 
 /**
@@ -27,7 +38,7 @@ export class EmbeddingService {
   /**
    * Generate embedding for a single text
    */
-  async embedText(options: EmbeddingOptions): Promise<number[]> {
+  async embedText(options: EmbeddingOptions): Promise<EmbedTextResult> {
     const { text, model } = options;
 
     if (!text || text.trim().length === 0) {
@@ -38,6 +49,8 @@ export class EmbeddingService {
     const embeddingModel = model
       ? google.textEmbedding(model)
       : this.defaultModel;
+
+    const modelName = model || "text-embedding-004";
 
     let lastError: Error | null = null;
 
@@ -57,7 +70,14 @@ export class EmbeddingService {
           );
         }
 
-        return embedding;
+        // Extract usage and calculate cost (use embedding-specific extraction)
+        const usage = extractEmbeddingUsageFromResponse(result);
+        const costMetadata = calculateCost(modelName, usage, "embedding");
+
+        return {
+          embedding,
+          costMetadata,
+        };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -96,7 +116,7 @@ export class EmbeddingService {
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
       const batchResults = await Promise.all(
-        batch.map((text) => this.embedText({ text }))
+        batch.map((text) => this.embedText({ text }).then((r) => r.embedding))
       );
       results.push(...batchResults);
     }
@@ -111,7 +131,7 @@ export class EmbeddingService {
     title: string;
     company: string;
     description: string;
-  }): Promise<number[]> {
+  }): Promise<EmbedTextResult> {
     // Combine title, company, and description for embedding
     const combinedText = `${job.title} at ${job.company}\n\n${job.description}`;
 
@@ -137,7 +157,7 @@ export class EmbeddingService {
     educationLevel?: string;
     workType?: string;
     workSchedule?: string;
-  }): Promise<number[]> {
+  }): Promise<EmbedTextResult> {
     // Format structured data as text for embedding
     const parts: string[] = [];
 

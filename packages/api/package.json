@@ -8,6 +8,11 @@
     "./services/ai.service": "./src/services/ai.service.ts",
     "./services/batch-embedding.service": "./src/services/batch-embedding.service.ts",
     "./services/temporal.service": "./src/services/temporal.service.ts",
+    "./services/job.service": "./src/services/job.service.ts",
+    "./services/job-analysis.service": "./src/services/job-analysis.service.ts",
+    "./services/job-extraction.service": "./src/services/job-extraction.service.ts",
+    "./services/job-search.service": "./src/services/job-search.service.ts",
+    "./services/feedback.service": "./src/services/feedback.service.ts",
     "./schemas/job-extraction": "./src/schemas/job-extraction.ts"
   },
   "type": "module",
