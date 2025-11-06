@@ -138,7 +138,20 @@ async function processDiscoveredJobs(
     console.log(`   Processed: ${result.processed}`);
     console.log(`   Failed: ${result.failed}`);
     console.log(`   Skipped: ${result.skipped}`);
-    console.log(`   Total: ${result.total}\n`);
+    console.log(`   Total: ${result.total}`);
+    
+    if (result.processedJobIds && result.processedJobIds.length > 0) {
+      console.log(`   Processed Job IDs: ${result.processedJobIds.join(', ')}`);
+    }
+    
+    if (result.failedJobIds && result.failedJobIds.length > 0) {
+      console.log(`   Failed Job IDs: ${result.failedJobIds.join(', ')}`);
+    }
+    
+    // Also output as JSON for programmatic access
+    console.log('\n📋 Result (JSON):');
+    console.log(JSON.stringify(result, null, 2));
+    console.log('');
 
     await connection.close();
   } catch (error) {

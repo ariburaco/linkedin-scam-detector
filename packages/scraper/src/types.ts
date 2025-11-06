@@ -6,10 +6,16 @@
 export interface ScrapeJobSearchParams {
   keywords?: string;
   location?: string;
-  experienceLevel?: "internship" | "entry" | "associate" | "mid-senior" | "director" | "executive";
-  jobType?: "F" | "C" | "P" | "T" | "I" | "V" | "O"; // Full-time, Contract, Part-time, Temporary, Internship, Volunteer, Other
+  experienceLevel?:
+    | 'internship'
+    | 'entry'
+    | 'associate'
+    | 'mid-senior'
+    | 'director'
+    | 'executive';
+  jobType?: 'F' | 'C' | 'P' | 'T' | 'I' | 'V' | 'O'; // Full-time, Contract, Part-time, Temporary, Internship, Volunteer, Other
   remote?: boolean;
-  datePosted?: "r86400" | "r604800" | "r2592000"; // 24h, 7d, 30d
+  datePosted?: 'r86400' | 'r604800' | 'r2592000'; // 24h, 7d, 30d
   maxResults?: number;
   start?: number; // Pagination offset
 }
@@ -22,7 +28,7 @@ export interface ScrapedJobData {
   companyUrl?: string;
   location?: string;
   employmentType?: string;
-  workType?: "remote" | "hybrid" | "on-site";
+  workType?: 'remote' | 'hybrid' | 'on-site';
   description?: string;
   postedDate?: string;
   applicationCount?: string;
@@ -33,6 +39,9 @@ export interface ScrapedJobData {
   companyLogoUrl?: string;
   insight?: string;
   discoverySource?: string; // e.g., "scraper", "extension", "manual"
+  seniorityLevel?: string;
+  jobFunction?: string;
+  industries?: string;
   rawData?: Record<string, unknown>;
 }
 
@@ -55,4 +64,3 @@ export interface ScraperConfig {
   maxRetries?: number;
   retryDelay?: number; // ms delay between retries
 }
-

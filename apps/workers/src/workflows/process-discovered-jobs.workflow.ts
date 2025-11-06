@@ -31,6 +31,8 @@ export interface ProcessDiscoveredJobsWorkflowOutput {
   failed: number;
   skipped: number;
   total: number;
+  processedJobIds: string[]; // Array of LinkedIn job IDs that were successfully processed
+  failedJobIds: string[]; // Array of LinkedIn job IDs that failed to process
 }
 
 /**
@@ -67,6 +69,8 @@ export async function ProcessDiscoveredJobs(
       failed: 0,
       skipped: 0,
       total: 0,
+      processedJobIds: [],
+      failedJobIds: [],
     };
   }
 
@@ -74,6 +78,8 @@ export async function ProcessDiscoveredJobs(
   let processed = 0;
   let failed = 0;
   let skipped = 0;
+  const processedJobIds: string[] = [];
+  const failedJobIds: string[] = [];
   const jobsToProcess = limit ? jobs.slice(0, limit) : jobs;
   const totalToProcess = jobsToProcess.length;
 
@@ -84,8 +90,9 @@ export async function ProcessDiscoveredJobs(
         discoveredJobId: discoveredJob.id,
       });
 
-      if (result.success) {
+      if (result.success && result.linkedinJobId) {
         processed++;
+        processedJobIds.push(result.linkedinJobId);
 
         // Note: Extraction and embedding workflows would be triggered here
         // if feature flags are enabled, but we'll handle that in a separate
@@ -93,9 +100,18 @@ export async function ProcessDiscoveredJobs(
         // For now, we just create the Job entry
       } else {
         failed++;
+        // Use discoveredJob.linkedinJobId as fallback if result doesn't have it
+        const jobId = result.linkedinJobId || discoveredJob.linkedinJobId;
+        if (jobId) {
+          failedJobIds.push(jobId);
+        }
       }
     } catch (error) {
       failed++;
+      // Add discoveredJob.linkedinJobId to failed list
+      if (discoveredJob.linkedinJobId) {
+        failedJobIds.push(discoveredJob.linkedinJobId);
+      }
       // Error is already logged in the activity
     }
   }
@@ -106,5 +122,7 @@ export async function ProcessDiscoveredJobs(
     failed,
     skipped,
     total: totalToProcess, // Return the number we actually attempted to process
+    processedJobIds,
+    failedJobIds,
   };
 }

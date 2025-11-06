@@ -10,6 +10,7 @@ import prisma from '@acme/db';
 import type { CreateDiscoveredJobInput } from '@acme/api/services/discovered-job.service';
 import { DiscoveredJobService } from '@acme/api/services/discovered-job.service';
 import { JobService } from '@acme/api/services/job.service';
+import { parsePostedDate } from '@acme/api/utils/date-utils';
 import { scrapeLinkedInJobDetails } from './linkedin-scraper.activity';
 
 const logger = new Logger('DiscoveredJobActivity');
@@ -227,9 +228,7 @@ export async function processDiscoveredJobToJob(
       location: scrapedDetails.location || null,
       salary: scrapedDetails.salary || null,
       employmentType: scrapedDetails.employmentType || null,
-      postedAt: scrapedDetails.postedDate
-        ? new Date(scrapedDetails.postedDate)
-        : null,
+      postedAt: parsePostedDate(scrapedDetails.postedDate),
       scrapedBy: discoveredJob.discoveredBy || null,
       rawData: scrapedDetails.rawData || null,
     });

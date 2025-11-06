@@ -258,8 +258,17 @@ export class BrowserManager {
       });
 
       // Wait a bit for page to fully load
-      const { sleep } = await import('./utils');
+      const { sleep, dismissContextualSignInModal } = await import('./utils');
       await sleep(2000);
+
+      // Dismiss any contextual modals that appear
+      const modalDismissed = await dismissContextualSignInModal(page);
+      if (modalDismissed) {
+        logger.info(
+          'Dismissed contextual sign-in modal during session establishment'
+        );
+        await sleep(500); // Wait for modal to fully disappear
+      }
 
       // Check if session is established
       const { verifySession } = await import('./utils');

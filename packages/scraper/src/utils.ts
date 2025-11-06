@@ -192,10 +192,208 @@ export function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Expand job description by clicking "Show more" button if present
+ * Returns true if button was clicked, false if button doesn't exist or is already expanded
+ */
+export async function expandJobDescription(page: Page): Promise<boolean> {
+  try {
+    const showMoreButton = await page.$(
+      '.show-more-less-html__button.show-more-less-html__button--more'
+    );
+
+    if (!showMoreButton) {
+      return false; // Button doesn't exist (already expanded or not present)
+    }
+
+    // Check if button is visible
+    const isVisible = await page.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return (
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        style.opacity !== '0'
+      );
+    }, showMoreButton);
+
+    if (!isVisible) {
+      return false; // Button is hidden
+    }
+
+    // Click the button
+    await showMoreButton.click();
+    await sleep(500); // Wait for animation/expansion
+
+    // Verify expansion by checking if "Show less" button appears or content expanded
+    const showLessButton = await page.$(
+      '.show-more-less-html__button.show-more-less-html__button--less'
+    );
+    if (showLessButton) {
+      return true; // Successfully expanded
+    }
+
+    // Alternative check: verify description is no longer clamped
+    const descriptionSection = await page.$('.show-more-less-html');
+    if (descriptionSection) {
+      const isExpanded = await page.evaluate((el) => {
+        return !el.classList.contains(
+          'show-more-less-html__markup--clamp-after-5'
+        );
+      }, descriptionSection);
+      return isExpanded;
+    }
+
+    return false;
+  } catch (error) {
+    // Fail silently - if expansion fails, we'll still try to extract what's visible
+    return false;
+  }
+}
+
+/**
+ * Dismiss LinkedIn contextual sign-in modal if present
+ * Returns true if modal was dismissed, false if no modal found or dismissal failed
+ */
+export async function dismissContextualSignInModal(
+  page: Page
+): Promise<boolean> {
+  try {
+    // Check if contextual sign-in modal exists
+    const modalSelector = '.contextual-sign-in-modal__screen';
+    const modal = await page.$(modalSelector);
+
+    if (!modal) {
+      return false; // No modal found
+    }
+
+    // Check if modal is visible
+    const isVisible = await page.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return (
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        style.opacity !== '0'
+      );
+    }, modal);
+
+    if (!isVisible) {
+      return false; // Modal not visible
+    }
+
+    // Try multiple dismiss button selectors
+    const dismissSelectors = [
+      'button.modal__dismiss[aria-label="Dismiss"]',
+      'button.contextual-sign-in-modal__dismiss',
+      'button[aria-label="Dismiss"]',
+      '.modal__dismiss',
+      '.contextual-sign-in-modal__dismiss',
+      'button.sign-in-modal__dismiss',
+    ];
+
+    let dismissButton = null;
+    for (const selector of dismissSelectors) {
+      dismissButton = await page.$(selector);
+      if (dismissButton) {
+        // Check if button is visible
+        const buttonVisible = await page.evaluate((el) => {
+          const style = window.getComputedStyle(el);
+          return style.display !== 'none' && style.visibility !== 'hidden';
+        }, dismissButton);
+        if (buttonVisible) {
+          break;
+        }
+        dismissButton = null;
+      }
+    }
+
+    if (!dismissButton) {
+      // Try to find close icon/X button
+      const closeIcon = await page.$(
+        'icon.sign-in-modal__dismiss-icon, svg[class*="dismiss"]'
+      );
+      if (closeIcon) {
+        const parentButton = await page.evaluateHandle((icon) => {
+          return icon.closest('button');
+        }, closeIcon);
+        if (parentButton) {
+          dismissButton = parentButton as any;
+        }
+      }
+    }
+
+    if (dismissButton) {
+      // Click dismiss button
+      await dismissButton.click();
+
+      // Wait for modal to disappear (check for removal or visibility change)
+      await sleep(500);
+
+      // Verify modal is gone
+      const modalStillExists = await page.$(modalSelector);
+      if (modalStillExists) {
+        const stillVisible = await page.evaluate((el) => {
+          const style = window.getComputedStyle(el);
+          return (
+            style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            style.opacity !== '0'
+          );
+        }, modalStillExists);
+
+        if (!stillVisible) {
+          return true; // Modal dismissed (hidden)
+        }
+      } else {
+        return true; // Modal removed from DOM
+      }
+    }
+
+    // If we couldn't dismiss, try pressing Escape key
+    await page.keyboard.press('Escape');
+    await sleep(500);
+
+    // Check if modal is gone
+    const modalAfterEscape = await page.$(modalSelector);
+    if (!modalAfterEscape) {
+      return true;
+    }
+
+    const stillVisibleAfterEscape = await page.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return (
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        style.opacity !== '0'
+      );
+    }, modalAfterEscape);
+
+    return !stillVisibleAfterEscape;
+  } catch (error) {
+    // Log error but don't throw - graceful degradation
+    return false;
+  }
+}
+
+/**
  * Check if page requires login
  */
 export async function requiresLogin(page: Page): Promise<boolean> {
   try {
+    // Check for contextual sign-in modal first (this is a blocking modal)
+    const contextualModal = await page.$('.contextual-sign-in-modal__screen');
+    if (contextualModal) {
+      const isVisible = await page.evaluate((el) => {
+        const style = window.getComputedStyle(el);
+        return (
+          style.display !== 'none' &&
+          style.visibility !== 'hidden' &&
+          style.opacity !== '0'
+        );
+      }, contextualModal);
+      if (isVisible) {
+        return true; // Modal is blocking content
+      }
+    }
+
     // Check for LinkedIn login page indicators
     const loginIndicators = [
       'input[name="session_key"]',
