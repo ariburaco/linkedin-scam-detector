@@ -61,7 +61,7 @@ export function JobRiskBadge({
   /**
    * Extract job data from DOM and reset state if job changed
    */
-  const detectJobChange = useCallback(() => {
+  const detectJobChange = useCallback(async () => {
     try {
       // Skip if provided job data (used for search results)
       if (providedJobData) {
@@ -80,7 +80,7 @@ export function JobRiskBadge({
       // If no container or extraction failed, try full page extraction
       // This works for both single job pages and search detail panels
       if (!extractedData) {
-        extractedData = extractJobDataFromPage();
+        extractedData = await extractJobDataFromPage();
       }
 
       if (!extractedData || !extractedData.title) {
@@ -113,41 +113,57 @@ export function JobRiskBadge({
   }, [providedJobData, container]);
 
   // Debounced version of detectJobChange
-  const debouncedDetectJobChange = useCallback(debounce(detectJobChange, 300), [
-    detectJobChange,
-  ]);
+  // Note: debounce works with async functions, but we need to handle the promise
+  const debouncedDetectJobChange = useCallback(
+    debounce(() => {
+      void detectJobChange();
+    }, 300),
+    [detectJobChange]
+  );
 
   // Extract job data on mount if not provided
   useEffect(() => {
-    if (providedJobData) {
-      // Ensure loading state when provided job data changes
-      setRiskLevel("loading");
-      setJobData(providedJobData);
-      return;
-    }
+    let isMounted = true;
 
-    // Extract from DOM
-    // Priority: 1) container (for search result cards), 2) full page (for detail panels or single job pages)
-    let extractedData: JobData | null = null;
+    const extractData = async () => {
+      if (providedJobData) {
+        // Ensure loading state when provided job data changes
+        setRiskLevel("loading");
+        setJobData(providedJobData);
+        return;
+      }
 
-    if (container) {
-      // Try extracting from card container first (for search result cards)
-      extractedData = extractJobDataFromCard(container);
-    }
+      // Extract from DOM
+      // Priority: 1) container (for search result cards), 2) full page (for detail panels or single job pages)
+      let extractedData: JobData | null = null;
 
-    // If no container or extraction failed, try full page extraction
-    // This works for both single job pages and search detail panels
-    if (!extractedData) {
-      extractedData = extractJobDataFromPage();
-    }
+      if (container) {
+        // Try extracting from card container first (for search result cards)
+        extractedData = extractJobDataFromCard(container);
+      }
 
-    if (extractedData) {
-      const initialJobId = generateJobId(extractedData);
-      lastJobIdRef.current = initialJobId;
-      // Ensure loading state when new job data is extracted
-      setRiskLevel("loading");
-      setJobData(extractedData);
-    }
+      // If no container or extraction failed, try full page extraction
+      // This works for both single job pages and search detail panels
+      if (!extractedData) {
+        extractedData = await extractJobDataFromPage();
+      }
+
+      if (!isMounted) return;
+
+      if (extractedData) {
+        const initialJobId = generateJobId(extractedData);
+        lastJobIdRef.current = initialJobId;
+        // Ensure loading state when new job data is extracted
+        setRiskLevel("loading");
+        setJobData(extractedData);
+      }
+    };
+
+    void extractData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [providedJobData, container]);
 
   // Generate job ID and trigger scan
@@ -168,7 +184,19 @@ export function JobRiskBadge({
     jobIdRef.current = jobId;
     hasScannedRef.current = true;
 
-    const jobUrl = jobData.url || window.location.href;
+    // Clean URL - remove query parameters
+    let jobUrl = jobData.url || window.location.href;
+    try {
+      const urlObj = new URL(jobUrl);
+      jobUrl = `${urlObj.origin}${urlObj.pathname}`;
+      // Ensure trailing slash for job view URLs
+      if (jobUrl.match(/\/jobs\/view\/\d+$/) && !jobUrl.endsWith('/')) {
+        jobUrl += '/';
+      }
+    } catch (error) {
+      // If URL parsing fails, use original
+      jobUrl = jobData.url || window.location.href;
+    }
 
     // Add 300ms artificial delay before starting scan
     const delayTimeout = setTimeout(() => {
@@ -289,7 +317,7 @@ export function JobRiskBadge({
     }
 
     // Initial detection
-    detectJobChange();
+    void detectJobChange();
 
     // Set up MutationObserver for LinkedIn's dynamic content
     let observer: MutationObserver;

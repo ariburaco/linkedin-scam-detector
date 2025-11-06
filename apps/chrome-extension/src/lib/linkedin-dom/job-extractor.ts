@@ -7,6 +7,7 @@ import type {
   DiscoveredJobData,
   JobData,
 } from "./types";
+import { waitForElement } from "./wait-for-element";
 
 import { extensionLoggerContent } from "@/shared/loggers";
 
@@ -81,7 +82,7 @@ function extractEmploymentType(
   const preferencesContainer = container.querySelector(
     ".job-details-fit-level-preferences"
   );
-  
+
   if (preferencesContainer) {
     const buttons = preferencesContainer.querySelectorAll("button");
     for (const button of buttons) {
@@ -104,7 +105,7 @@ function extractEmploymentType(
       }
     }
   }
-  
+
   // Fallback: Look for job insights that might contain employment type
   const insights = container.querySelectorAll(
     ".job-details-jobs-unified-top-card__job-insight"
@@ -141,19 +142,21 @@ function extractPostedDate(
   const tertiaryContainer = container.querySelector(
     ".job-details-jobs-unified-top-card__tertiary-description-container"
   );
-  
+
   if (tertiaryContainer) {
     // Look for spans containing date patterns
     const spans = tertiaryContainer.querySelectorAll("span");
     for (const span of spans) {
       const text = span.textContent?.trim() || "";
       // Match patterns like "4 weeks ago", "2 days ago", "1 month ago", etc.
-      if (text.match(/\d+\s+(day|days|week|weeks|month|months|hour|hours)\s+ago/i)) {
+      if (
+        text.match(/\d+\s+(day|days|week|weeks|month|months|hour|hours)\s+ago/i)
+      ) {
         return text;
       }
     }
   }
-  
+
   // Fallback: Look for "Posted X days ago" or similar patterns in old structure
   const insightElements = container.querySelectorAll(
     ".job-details-jobs-unified-top-card__job-insight, .jobs-unified-top-card__primary-description-without-tagline"
@@ -278,15 +281,58 @@ export function extractJobDataFromCard(
 
 /**
  * Extract company information from job details page
+ * Attempts to extract partial data even if full company section is missing
  */
 function extractCompanyInfo(document: Document): CompanyData | null {
   try {
-    // Find the "About the company" section
+    // First, try to extract company name and URL from the top card (always present)
+    // This allows us to return partial data even if company section is missing
+    const companyNameElement = findElement(document, SELECTORS.companyName);
+    const companyName = companyNameElement?.textContent?.trim() || null;
+
+    // Try to find company link from top card
+    let companyUrl: string | null = null;
+    let linkedinCompanyId: string | null = null;
+
+    if (companyNameElement) {
+      // Check if the element itself is a link
+      if (companyNameElement instanceof HTMLAnchorElement) {
+        companyUrl = companyNameElement.href;
+      } else {
+        // Look for link inside or nearby
+        const linkElement =
+          companyNameElement.querySelector('a[href*="/company/"]') ||
+          companyNameElement.closest('a[href*="/company/"]') ||
+          companyNameElement.parentElement?.querySelector(
+            'a[href*="/company/"]'
+          );
+        if (linkElement instanceof HTMLAnchorElement) {
+          companyUrl = linkElement.href;
+        } else if (linkElement) {
+          companyUrl = linkElement.getAttribute("href");
+        }
+      }
+    }
+
+    // Extract LinkedIn company ID from URL
+    if (companyUrl) {
+      const match = companyUrl.match(/\/company\/([^/?]+)/);
+      if (match?.[1]) {
+        linkedinCompanyId = match[1];
+      }
+    }
+
+    // If we have at least company name and ID, we can return partial data
+    // But first, try to find the full company section for additional details
     const companySectionSelectors = [
       ".jobs-company__box",
       ".jobs-company__card",
+      ".jobs-company__insights",
       '[data-test-id="about-us"]',
       'section[class*="company"]',
+      'div[class*="jobs-company"]',
+      '.jobs-details__main-content section[class*="company"]',
+      '.jobs-details__main-content--single-pane section[class*="company"]',
     ];
 
     let companySection: Element | null = null;
@@ -295,36 +341,75 @@ function extractCompanyInfo(document: Document): CompanyData | null {
       if (companySection) break;
     }
 
+    // If no company section found, return partial data if we have name and ID
     if (!companySection) {
+      if (companyName && linkedinCompanyId) {
+        // Build full company URL if relative
+        const fullUrl = companyUrl?.startsWith("http")
+          ? companyUrl
+          : companyUrl
+            ? `https://www.linkedin.com${companyUrl}`
+            : `https://www.linkedin.com/company/${linkedinCompanyId}`;
+
+        return {
+          linkedinCompanyId,
+          name: companyName,
+          url: fullUrl,
+        };
+      }
       return null;
     }
 
-    // Extract company name
-    const nameElement =
+    // Extract company name from section (prefer section name over top card)
+    const sectionNameElement =
       companySection.querySelector("h3") ||
       companySection.querySelector('a[data-test-id="about-us"]') ||
-      companySection.querySelector(".jobs-company__name");
-    const name = nameElement?.textContent?.trim() || null;
+      companySection.querySelector(".jobs-company__name") ||
+      companySection.querySelector("h2") ||
+      companySection.querySelector("h1");
+    const sectionName = sectionNameElement?.textContent?.trim() || companyName;
 
+    // Use section name if available, otherwise fall back to top card name
+    const name = sectionName || companyName;
     if (!name) {
       return null;
     }
 
-    // Extract company URL and LinkedIn ID
-    const companyLinkElement = companySection.querySelector(
+    // Extract company URL and LinkedIn ID from section (prefer section link)
+    const sectionCompanyLinkElement = companySection.querySelector(
       'a[href*="/company/"]'
     );
-    const companyUrl = companyLinkElement?.getAttribute("href") || null;
+    if (sectionCompanyLinkElement) {
+      if (sectionCompanyLinkElement instanceof HTMLAnchorElement) {
+        companyUrl = sectionCompanyLinkElement.href;
+      } else {
+        companyUrl = sectionCompanyLinkElement.getAttribute("href");
+      }
 
-    let linkedinCompanyId: string | null = null;
-    if (companyUrl) {
-      const match = companyUrl.match(/\/company\/([^/?]+)/);
-      if (match?.[1]) {
-        linkedinCompanyId = match[1];
+      if (companyUrl) {
+        const match = companyUrl.match(/\/company\/([^/?]+)/);
+        if (match?.[1]) {
+          linkedinCompanyId = match[1];
+        }
+      }
+    }
+
+    // Ensure we have LinkedIn company ID
+    if (!linkedinCompanyId && companyName) {
+      // Last resort: try to find any company link on the page
+      const anyCompanyLink = document.querySelector('a[href*="/company/"]');
+      if (anyCompanyLink instanceof HTMLAnchorElement) {
+        companyUrl = anyCompanyLink.href;
+        const match = companyUrl.match(/\/company\/([^/?]+)/);
+        if (match?.[1]) {
+          linkedinCompanyId = match[1];
+        }
       }
     }
 
     if (!linkedinCompanyId) {
+      // If we still don't have company ID, we can't return valid CompanyData
+      // Return null as linkedinCompanyId is required
       return null;
     }
 
@@ -335,19 +420,22 @@ function extractCompanyInfo(document: Document): CompanyData | null {
     // Extract description
     const descriptionElement =
       companySection.querySelector(".jobs-company__description") ||
+      companySection.querySelector(".jobs-company__box p") ||
       companySection.querySelector("p");
     const description = descriptionElement?.textContent?.trim() || null;
 
     // Extract industry
     const industryElement =
       companySection.querySelector(".jobs-company__industry") ||
-      companySection.querySelector('[data-test-id="company-industry"]');
+      companySection.querySelector('[data-test-id="company-industry"]') ||
+      companySection.querySelector('[class*="industry"]');
     const industry = industryElement?.textContent?.trim() || null;
 
     // Extract employee counts
     const employeeCountElement =
       companySection.querySelector(".jobs-company__employee-count") ||
-      companySection.querySelector('[data-test-id="company-size"]');
+      companySection.querySelector('[data-test-id="company-size"]') ||
+      companySection.querySelector('[class*="employee"]');
     const employeeCount = employeeCountElement?.textContent?.trim() || null;
 
     const linkedinEmployeeCountElement = companySection.querySelector(
@@ -359,13 +447,16 @@ function extractCompanyInfo(document: Document): CompanyData | null {
     // Extract follower count
     const followerCountElement =
       companySection.querySelector(".jobs-company__follower-count") ||
-      companySection.querySelector('[data-test-id="company-followers"]');
+      companySection.querySelector('[data-test-id="company-followers"]') ||
+      companySection.querySelector('[class*="follower"]');
     const followerCount = followerCountElement?.textContent?.trim() || null;
 
     // Build full company URL if relative
     const fullUrl = companyUrl?.startsWith("http")
       ? companyUrl
-      : `https://www.linkedin.com${companyUrl}`;
+      : companyUrl
+        ? `https://www.linkedin.com${companyUrl}`
+        : `https://www.linkedin.com/company/${linkedinCompanyId}`;
 
     return {
       linkedinCompanyId,
@@ -389,72 +480,143 @@ function extractCompanyInfo(document: Document): CompanyData | null {
 
 /**
  * Extract hiring team contacts from job details page
+ * Now waits for content to load (not skeleton/loader)
  */
-function extractHiringTeam(document: Document): ContactData[] {
+async function extractHiringTeam(document: Document): Promise<ContactData[]> {
   const contacts: ContactData[] = [];
 
   try {
+    // First wait for the hiring team section to appear (not skeleton)
+    const foundSection = await waitForElement(
+      [
+        ".job-details-people-who-can-help__section--two-pane",
+        ".job-details-people-who-can-help__section--single-pane",
+        ".job-details-people-who-can-help__section",
+        '[class*="people-who-can-help"]',
+      ],
+      document,
+      {
+        maxRetries: 15,
+        initialDelay: 300,
+        retryDelay: 500,
+        minContentLength: 0,
+        validator: (el) => {
+          // Skip if it's a loader
+          if (el.querySelector(".artdeco-loader") !== null) {
+            return false;
+          }
+          // Check if it has actual contact cards
+          const hasContacts =
+            el.querySelector(".hirer-card__hirer-information") !== null ||
+            el.querySelector('a[href*="/in/"]') !== null;
+          return hasContacts;
+        },
+      }
+    );
+
+    if (!foundSection) {
+      // Section not found or still loading - return empty array
+      return contacts;
+    }
+
     // Find the "Meet the hiring team" section
     // Try multiple selectors to catch different LinkedIn UI variations
     const hiringTeamSelectors = [
       // New LinkedIn structure (from DOM provided)
       ".job-details-people-who-can-help__section--two-pane",
+      ".job-details-people-who-can-help__section--single-pane",
+      ".job-details-people-who-can-help__section", // Base class without variant suffix
       '[class*="job-details-people-who-can-help"]',
+      '[class*="people-who-can-help"]',
       // Old selectors for backward compatibility
       'section[data-test-id="hiring-team"]',
       'section[data-test-id*="hiring"]',
       ".jobs-hiring-team",
+      ".jobs-hiring-team__container",
       '[class*="hiring-team"]',
       '[class*="hiringTeam"]',
+      '.jobs-details__main-content section[class*="hiring"]',
+      '.jobs-details__main-content--single-pane section[class*="hiring"]',
       // Look for h2 containing "Meet the hiring team" and get parent
       (() => {
         const h2 = Array.from(document.querySelectorAll("h2")).find(
           (el) =>
-            el.textContent
-              ?.toLowerCase()
-              .includes("meet the hiring team") ||
-            el.textContent?.toLowerCase().includes("hiring team")
+            el.textContent?.toLowerCase().includes("meet the hiring team") ||
+            el.textContent?.toLowerCase().includes("hiring team") ||
+            el.textContent?.toLowerCase().includes("people who can help")
         );
-        return h2?.closest("div[class*='people-who-can-help']") ||
+        return (
+          h2?.closest("div[class*='people-who-can-help']") ||
           h2?.closest("section") ||
-          h2?.parentElement;
+          h2?.parentElement
+        );
       })(),
     ].filter(Boolean) as string[];
 
-    let hiringTeamSection: Element | null = null;
-    
-    // First try: Look for h2 containing "Meet the hiring team" and get parent container
-    const h2Element = Array.from(document.querySelectorAll("h2")).find(
-      (el) =>
-        el.textContent?.toLowerCase().includes("meet the hiring team") ||
-        el.textContent?.toLowerCase().includes("hiring team")
-    );
-    
-    if (h2Element) {
-      // Find the parent container (usually a div with class containing "people-who-can-help")
-      hiringTeamSection =
-        h2Element.closest(".job-details-people-who-can-help__section--two-pane") ||
-        h2Element.closest('[class*="people-who-can-help"]') ||
-        h2Element.closest("section") ||
-        h2Element.parentElement;
-    }
-    
-    // Fallback: Try other selectors
-    if (!hiringTeamSection) {
-      for (const selector of hiringTeamSelectors) {
-        if (typeof selector === "function") continue; // Skip function selectors
-        hiringTeamSection = findElement(document, [selector]);
-        if (hiringTeamSection) break;
+    // Use the section we found via waitForElement, or try to find it again
+    let sectionElement: Element | null = foundSection;
+
+    // Fallback: If waitForElement didn't find it, try immediate lookup
+    if (!sectionElement) {
+      // First try: Look for h2 containing "Meet the hiring team" and get parent container
+      const h2Element = Array.from(document.querySelectorAll("h2, h3")).find(
+        (el) => {
+          const text = el.textContent?.toLowerCase().trim() || "";
+          return (
+            text.includes("meet the hiring team") ||
+            text.includes("hiring team") ||
+            text.includes("people who can help")
+          );
+        }
+      );
+
+      if (h2Element) {
+        // Find the parent container (usually a div with class containing "people-who-can-help")
+        sectionElement =
+          h2Element.closest(
+            ".job-details-people-who-can-help__section--two-pane"
+          ) ||
+          h2Element.closest(
+            ".job-details-people-who-can-help__section--single-pane"
+          ) ||
+          h2Element.closest(".job-details-people-who-can-help__section") ||
+          h2Element.closest('[class*="people-who-can-help"]') ||
+          h2Element.closest("div.artdeco-card") ||
+          h2Element.closest("section") ||
+          h2Element.parentElement?.parentElement || // Go up two levels if needed
+          h2Element.parentElement;
+      }
+
+      // Fallback: Try other selectors
+      if (!sectionElement) {
+        for (const selector of hiringTeamSelectors) {
+          if (typeof selector === "function") continue; // Skip function selectors
+          sectionElement = findElement(document, [selector]);
+          if (sectionElement) break;
+        }
       }
     }
 
-    if (!hiringTeamSection) {
+    if (!sectionElement) {
       extensionLoggerContent.debug(
         "[LinkedIn Scam Detector] Hiring team section not found. Tried selectors:",
         hiringTeamSelectors
       );
       return contacts;
     }
+
+    // Verify section is not a loader
+    if (
+      sectionElement.querySelector(".artdeco-loader") !== null ||
+      sectionElement.textContent?.toLowerCase().includes("loading job details")
+    ) {
+      extensionLoggerContent.debug(
+        "[LinkedIn Scam Detector] Hiring team section still loading (loader detected)"
+      );
+      return contacts;
+    }
+
+    const hiringTeamSection = sectionElement;
 
     extensionLoggerContent.debug(
       "[LinkedIn Scam Detector] Found hiring team section:",
@@ -470,38 +632,57 @@ function extractHiringTeam(document: Document): ContactData[] {
     // But we need to be more specific - look for divs containing profile links and hirer-card classes
     const contactCardSelectors = [
       // New LinkedIn structure: div containing .hirer-card__hirer-information
-      'div.display-flex.align-items-center.mt4:has(.hirer-card__hirer-information)',
-      'div:has(.hirer-card__hirer-information)',
+      "div.display-flex.align-items-center.mt4:has(.hirer-card__hirer-information)",
+      "div.display-flex.mt4:has(.hirer-card__hirer-information)",
+      "div:has(.hirer-card__hirer-information)",
       // More generic: divs with display-flex that contain profile links
       'div.display-flex.align-items-center:has(a[href*="/in/"])',
+      'div.display-flex:has(a[href*="/in/"])',
       // Old selectors for backward compatibility
       ".jobs-hiring-team__member",
       ".hiring-team-member",
       ".hiringTeamMember",
+      ".hirer-card",
       'li[class*="hiring-team"]',
       'li[class*="hiringTeam"]',
+      'li[class*="hirer"]',
       '[data-test-id="hiring-team-member"]',
       '[data-test-id*="hiring-team"]',
+      '[data-test-id*="hirer"]',
+      ".jobs-poster", // Poster card variant
     ];
 
     let contactCards: Element[] = [];
-    
+
     // First try: Look for divs containing .hirer-card__hirer-information (new LinkedIn structure)
     const hirerInfoElements = Array.from(
       hiringTeamSection.querySelectorAll(".hirer-card__hirer-information")
     );
-    
+
     if (hirerInfoElements.length > 0) {
       // Get parent divs (the contact card containers)
+      // Try multiple parent patterns - the card might be div.display-flex with various class combinations
       contactCards = hirerInfoElements
-        .map((el) => el.closest("div.display-flex.align-items-center") || el.parentElement)
+        .map((el) => {
+          // Try to find the display-flex parent (with or without all classes)
+          const displayFlexParent =
+            el.closest("div.display-flex.align-items-center.mt4") ||
+            el.closest("div.display-flex.align-items-center") ||
+            el.closest("div.display-flex.mt4") ||
+            el.closest("div.display-flex") ||
+            el.parentElement;
+          return displayFlexParent;
+        })
         .filter((el): el is Element => el !== null && el !== undefined);
-      
+
+      // Remove duplicates
+      contactCards = Array.from(new Set(contactCards));
+
       extensionLoggerContent.debug(
         `[LinkedIn Scam Detector] Found ${contactCards.length} contact cards using .hirer-card__hirer-information`
       );
     }
-    
+
     // Fallback: Try other selectors
     if (contactCards.length === 0) {
       for (const selector of contactCardSelectors) {
@@ -529,7 +710,9 @@ function extractHiringTeam(document: Document): ContactData[] {
             }
           }
         } else {
-          contactCards = Array.from(hiringTeamSection.querySelectorAll(selector));
+          contactCards = Array.from(
+            hiringTeamSection.querySelectorAll(selector)
+          );
           if (contactCards.length > 0) {
             extensionLoggerContent.debug(
               `[LinkedIn Scam Detector] Found ${contactCards.length} contact cards using selector: ${selector}`
@@ -575,8 +758,14 @@ function extractHiringTeam(document: Document): ContactData[] {
         const nameElement =
           card.querySelector(".jobs-poster__name strong") ||
           card.querySelector(".jobs-poster__name") ||
+          card.querySelector(".hirer-card__hirer-information strong") ||
+          card.querySelector(
+            ".hirer-card__hirer-information .jobs-poster__name"
+          ) ||
           card.querySelector(".hiring-team-member__name") ||
-          card.querySelector(".jobs-hiring-team__member-name");
+          card.querySelector(".jobs-hiring-team__member-name") ||
+          profileLinkElement?.querySelector("span") ||
+          profileLinkElement;
         const name = nameElement?.textContent?.trim() || null;
 
         if (!name) continue;
@@ -592,7 +781,9 @@ function extractHiringTeam(document: Document): ContactData[] {
         const isVerified =
           card.querySelector('[aria-label*="verified"]') !== null ||
           card.querySelector('[data-test-icon="verified-small"]') !== null ||
-          card.querySelector('.tvm__text--low-emphasis svg[data-test-icon="verified-small"]') !== null ||
+          card.querySelector(
+            '.tvm__text--low-emphasis svg[data-test-icon="verified-small"]'
+          ) !== null ||
           card.querySelector('[class*="verified"]') !== null;
 
         // Extract role/title
@@ -600,14 +791,14 @@ function extractHiringTeam(document: Document): ContactData[] {
         // Look within .hirer-card__hirer-information or .linked-area
         const hirerInfo = card.querySelector(".hirer-card__hirer-information");
         const linkedArea = hirerInfo?.querySelector(".linked-area");
-        
+
         // Extract full title (e.g., "Senior Talent Acquisition and Employer Branding Specialist @Pegasus Airlines")
         const titleElement =
           linkedArea?.querySelector(".text-body-small.t-black") ||
           card.querySelector(".hiring-team-member__title") ||
           card.querySelector(".jobs-hiring-team__member-title");
         const title = titleElement?.textContent?.trim() || null;
-        
+
         // Extract role (if separate from title, or extract from title)
         // For now, use title as role if no separate role field exists
         const roleElement =
@@ -628,7 +819,9 @@ function extractHiringTeam(document: Document): ContactData[] {
         const jobPosterElement = card.querySelector(".hirer-card__job-poster");
         const cardText = card.textContent?.toLowerCase() || "";
         const isJobPoster =
-          jobPosterElement?.textContent?.toLowerCase().includes("job poster") === true ||
+          jobPosterElement?.textContent
+            ?.toLowerCase()
+            .includes("job poster") === true ||
           cardText.includes("job poster") ||
           cardText.includes("posted") ||
           card.querySelector('[data-test-id="job-poster"]') !== null;
@@ -677,8 +870,9 @@ function extractHiringTeam(document: Document): ContactData[] {
 
 /**
  * Extract job data from a full job posting page
+ * Now async to wait for dynamically loaded content
  */
-export function extractJobDataFromPage(): JobData | null {
+export async function extractJobDataFromPage(): Promise<JobData | null> {
   try {
     // Extract job title
     const titleElement = findElement(document, SELECTORS.jobTitle);
@@ -693,15 +887,73 @@ export function extractJobDataFromPage(): JobData | null {
     const company = companyElement?.textContent?.trim() || "";
 
     // Extract full job description as HTML
-    const descriptionElement = findElement(document, SELECTORS.jobDescription);
+    // Wait for the description element to appear with content (LinkedIn loads dynamically)
+    let descriptionElement: HTMLElement | null = null;
+
+    // Wait for #job-details or .jobs-box__html-content to appear with content
+    descriptionElement = await waitForElement(
+      ["#job-details", ".jobs-box__html-content"],
+      document,
+      {
+        maxRetries: 15,
+        initialDelay: 200,
+        retryDelay: 400,
+        exponentialBackoff: false,
+        minContentLength: 200, // Wait for at least 200 chars of content
+        checkNestedContent: true,
+        validator: (el) => {
+          // Skip if it's a skeleton or loader
+          if (
+            el.classList.contains("scaffold-skeleton-container") ||
+            el.classList.contains("job-description-skeleton__text-container") ||
+            el.querySelector(".scaffold-skeleton-container") !== null ||
+            el.querySelector(".artdeco-loader") !== null
+          ) {
+            return false;
+          }
+
+          // Check if element has meaningful content (not just header)
+          const textContent = el.textContent?.trim() || "";
+          // Remove loading/skeleton text
+          const cleanText = textContent
+            .replace(/loading/gi, "")
+            .replace(/scaffold-skeleton/gi, "")
+            .trim();
+
+          // Check for actual content elements (not skeletons)
+          const contentElements = el.querySelectorAll("p, ul, ol, div.mt4");
+          const realContentElements = Array.from(contentElements).filter(
+            (child) =>
+              !child.classList.contains("scaffold-skeleton-container") &&
+              !child.querySelector(".scaffold-skeleton-container") &&
+              !child.querySelector(".artdeco-loader")
+          );
+
+          const hasNestedContent = realContentElements.length > 0;
+
+          // Element is ready if it has nested content AND substantial text (> 200 chars)
+          // OR if it has very substantial text (> 500 chars) even without nested elements
+          return (
+            (hasNestedContent && cleanText.length > 200) ||
+            cleanText.length > 500
+          );
+        },
+      }
+    );
+
+    // Fallback: If waitForElement didn't find it, try immediate lookup
+    if (!descriptionElement) {
+      descriptionElement = findElement(document, SELECTORS.jobDescription);
+    }
 
     // Safely extract HTML - ensure element is HTMLElement and has innerHTML property
     let descriptionHtml = "";
+
+    // Strategy 1: Try the found element first
     if (descriptionElement && descriptionElement instanceof HTMLElement) {
       try {
         descriptionHtml = descriptionElement.innerHTML?.trim() || "";
       } catch (error) {
-        // Fallback to textContent if innerHTML access fails
         extensionLoggerContent.debug(
           "[LinkedIn Scam Detector] innerHTML access failed, using textContent:",
           error
@@ -710,11 +962,123 @@ export function extractJobDataFromPage(): JobData | null {
       }
     }
 
+    // Strategy 2: If #job-details was found but content is minimal, check if it's the actual container
+    // In some LinkedIn layouts, #job-details IS the .jobs-box__html-content container
+    if (descriptionElement && descriptionElement.id === "job-details") {
+      // Check if this element itself has the class jobs-box__html-content (it often does)
+      if (descriptionElement.classList.contains("jobs-box__html-content")) {
+        // This is the right element, use it as-is
+        // But check if content is actually there - sometimes innerHTML might not include nested content
+        // Check textContent length as a better indicator of actual content
+        const textContentLength =
+          descriptionElement.textContent?.trim().length || 0;
+        if (descriptionHtml.length < 200 && textContentLength > 200) {
+          // HTML is minimal but text content exists - might be a parsing issue
+          // Try to get innerHTML again or use outerHTML
+          try {
+            const outerHtml = descriptionElement.outerHTML?.trim() || "";
+            if (outerHtml.length > descriptionHtml.length) {
+              descriptionHtml = outerHtml;
+            }
+          } catch {
+            // If that fails, the innerHTML should still have the content
+            // The issue might be elsewhere (markdown conversion)
+          }
+        }
+      } else {
+        // #job-details is nested, find the parent .jobs-box__html-content
+        const parentContainer = descriptionElement.closest(
+          ".jobs-box__html-content"
+        );
+        if (parentContainer && parentContainer instanceof HTMLElement) {
+          try {
+            const parentHtml = parentContainer.innerHTML?.trim() || "";
+            if (parentHtml.length > descriptionHtml.length) {
+              descriptionHtml = parentHtml;
+              descriptionElement = parentContainer;
+            }
+          } catch {
+            // Ignore, use original
+          }
+        }
+      }
+    }
+
+    // Strategy 3: If still minimal, try getting from the article container
+    if (descriptionHtml.length < 200 && descriptionElement) {
+      const articleContainer =
+        descriptionElement.closest("article.jobs-description__container") ||
+        descriptionElement.closest(".jobs-description__content");
+      if (articleContainer && articleContainer instanceof HTMLElement) {
+        try {
+          const articleHtml = articleContainer.innerHTML?.trim() || "";
+          if (articleHtml.length > descriptionHtml.length) {
+            descriptionHtml = articleHtml;
+          }
+        } catch {
+          // Ignore, use what we have
+        }
+      }
+    }
+
+    // Strategy 4: Last resort - try finding .jobs-box__html-content directly
+    if (descriptionHtml.length < 200) {
+      const directContainer =
+        document.querySelector(".jobs-box__html-content#job-details") ||
+        document.querySelector(".jobs-box__html-content");
+      if (directContainer && directContainer instanceof HTMLElement) {
+        try {
+          const directHtml = directContainer.innerHTML?.trim() || "";
+          if (directHtml.length > descriptionHtml.length) {
+            descriptionHtml = directHtml;
+          }
+        } catch {
+          // Ignore
+        }
+      }
+    }
+
+    // Strategy 5: Check if content exists but is minimal - try to get textContent as fallback
+    // Sometimes innerHTML might not capture everything, but textContent will
+    if (descriptionHtml.length < 200 && descriptionElement) {
+      const textContent = descriptionElement.textContent?.trim() || "";
+      // If textContent is much longer, the HTML extraction might have failed
+      // Try to reconstruct from the element's children
+      if (textContent.length > 500) {
+        // Content exists, try to get it from the element's outerHTML or rebuild
+        try {
+          // Get all child elements and their HTML
+          const children = Array.from(descriptionElement.children);
+          if (children.length > 0) {
+            let rebuiltHtml = "";
+            for (const child of children) {
+              if (child instanceof HTMLElement) {
+                rebuiltHtml += child.outerHTML;
+              }
+            }
+            if (rebuiltHtml.length > descriptionHtml.length) {
+              descriptionHtml = rebuiltHtml;
+            }
+          }
+        } catch {
+          // If rebuilding fails, at least we have textContent which will be used as fallback
+        }
+      }
+    }
+
     // Convert HTML to Markdown with error handling
     let description = "";
     if (descriptionHtml) {
       try {
         description = convertHtmlToMarkdown(descriptionHtml);
+        // If markdown conversion resulted in minimal content (just header), try textContent fallback
+        if (description.length < 200 && descriptionElement) {
+          const textContent = descriptionElement.textContent?.trim() || "";
+          if (textContent.length > description.length) {
+            // Use textContent and format it better
+            description = textContent;
+          }
+        }
       } catch (error) {
         extensionLoggerContent.error(
           "[LinkedIn Scam Detector] Failed to convert HTML to Markdown:",
@@ -722,11 +1086,34 @@ export function extractJobDataFromPage(): JobData | null {
         );
         // Fallback to plain text if conversion fails
         description = descriptionHtml.replace(/<[^>]*>/g, "").trim();
+        // If that's also minimal, try textContent
+        if (description.length < 200 && descriptionElement) {
+          const textContent = descriptionElement.textContent?.trim() || "";
+          if (textContent.length > description.length) {
+            description = textContent;
+          }
+        }
       }
+    } else if (descriptionElement) {
+      // If no HTML was extracted, try textContent as last resort
+      description = descriptionElement.textContent?.trim() || "";
     }
 
-    // Use current URL
-    const url = window.location.href;
+    // Use current URL and clean query parameters
+    const currentUrl = window.location.href;
+    let url = currentUrl;
+    try {
+      // Remove query parameters, keep pathname
+      const urlObj = new URL(currentUrl);
+      url = `${urlObj.origin}${urlObj.pathname}`;
+      // Ensure trailing slash for job view URLs
+      if (url.match(/\/jobs\/view\/\d+$/) && !url.endsWith("/")) {
+        url += "/";
+      }
+    } catch {
+      // If URL parsing fails, use original
+      url = currentUrl;
+    }
 
     // Extract LinkedIn job ID from URL
     const linkedinJobId = extractLinkedInJobId(url);
@@ -742,16 +1129,36 @@ export function extractJobDataFromPage(): JobData | null {
       ".job-details-jobs-unified-top-card__tertiary-description-container"
     );
     if (tertiaryContainer) {
-      // Get first span with location text (before the "·" separator)
-      const spans = Array.from(tertiaryContainer.querySelectorAll("span.tvm__text--low-emphasis"));
-      if (spans.length > 0) {
-        const locationText = spans[0]?.textContent?.trim();
-        // Make sure it's not a date or other metadata
-        if (locationText && !locationText.match(/\d+\s+(day|days|week|weeks|month|months|hour|hours)\s+ago/i) && 
-            !locationText.toLowerCase().includes("people clicked") &&
-            !locationText.toLowerCase().includes("promoted") &&
-            !locationText.toLowerCase().includes("responses")) {
-          location = locationText;
+      // Get all spans and find the location (usually first non-metadata span)
+      const spans = Array.from(
+        tertiaryContainer.querySelectorAll("span.tvm__text--low-emphasis, span")
+      );
+      for (const span of spans) {
+        const text = span.textContent?.trim();
+        if (!text) continue;
+
+        // Skip if it's clearly metadata (dates, counts, etc.)
+        const isMetadata =
+          text.match(
+            /\d+\s+(day|days|week|weeks|month|months|hour|hours)\s+ago/i
+          ) ||
+          text.toLowerCase().includes("people clicked") ||
+          text.toLowerCase().includes("promoted") ||
+          text.toLowerCase().includes("responses") ||
+          text.toLowerCase().includes("applicants") ||
+          text.match(/^\d+\s*people/i) ||
+          text.match(/^\d+\s*applicants/i);
+
+        if (!isMetadata && text.length > 0) {
+          // Likely location - check if it contains common location patterns
+          // Locations often contain commas, city/state/country patterns
+          if (text.includes(",") || text.match(/[A-Z][a-z]+\s*,\s*[A-Z]/)) {
+            location = text;
+            break;
+          } else if (!location) {
+            // Use first non-metadata text as location fallback
+            location = text;
+          }
         }
       }
     }
@@ -770,8 +1177,8 @@ export function extractJobDataFromPage(): JobData | null {
     // Extract company information
     const companyData = extractCompanyInfo(document);
 
-    // Extract hiring team contacts
-    const contacts = extractHiringTeam(document);
+    // Extract hiring team contacts (now async to wait for content)
+    const contacts = await extractHiringTeam(document);
 
     // Extract additional metadata for rawData
     const rawData: Record<string, unknown> = {
@@ -780,7 +1187,9 @@ export function extractJobDataFromPage(): JobData | null {
 
     // Extract additional metadata from tertiary description container (reuse variable)
     if (tertiaryContainer) {
-      const spans = Array.from(tertiaryContainer.querySelectorAll("span.tvm__text--low-emphasis"));
+      const spans = Array.from(
+        tertiaryContainer.querySelectorAll("span.tvm__text--low-emphasis")
+      );
       const metadata: string[] = [];
       for (const span of spans) {
         const text = span.textContent?.trim();
@@ -791,7 +1200,7 @@ export function extractJobDataFromPage(): JobData | null {
       if (metadata.length > 0) {
         rawData.metadata = metadata;
       }
-      
+
       // Extract specific metadata fields
       const fullText = tertiaryContainer.textContent || "";
       if (fullText.includes("people clicked apply")) {
@@ -813,11 +1222,18 @@ export function extractJobDataFromPage(): JobData | null {
       ".job-details-fit-level-preferences"
     );
     if (preferencesContainer) {
-      const buttons = Array.from(preferencesContainer.querySelectorAll("button"));
+      const buttons = Array.from(
+        preferencesContainer.querySelectorAll("button")
+      );
       const workTypes: string[] = [];
       for (const button of buttons) {
         const text = button.textContent?.trim();
-        if (text && !text.match(/full[- ]?time|part[- ]?time|contract|temporary|internship/i)) {
+        if (
+          text &&
+          !text.match(
+            /full[- ]?time|part[- ]?time|contract|temporary|internship/i
+          )
+        ) {
           workTypes.push(text);
         }
       }

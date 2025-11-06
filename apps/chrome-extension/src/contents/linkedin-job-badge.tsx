@@ -39,22 +39,78 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
     // Try multiple approaches to find the buttons container
 
     // First, try finding by the buttons themselves and work backwards
-    const applyButton = document.querySelector(".jobs-s-apply");
-    const saveButton = document.querySelector(".jobs-save-button");
+    // Try multiple selectors for Apply button
+    const applyButtonSelectors = [
+      ".jobs-s-apply",
+      "button[data-control-name='job_apply']",
+      "a[data-control-name='job_apply']",
+      'button[aria-label*="Apply"]',
+      'a[aria-label*="Apply"]',
+    ];
+    const saveButtonSelectors = [
+      ".jobs-save-button",
+      "button[data-control-name='save_job']",
+      "button[aria-label*='Save']",
+    ];
+
+    let applyButton: Element | null = null;
+    let saveButton: Element | null = null;
+
+    for (const selector of applyButtonSelectors) {
+      applyButton = document.querySelector(selector);
+      if (applyButton) break;
+    }
+
+    for (const selector of saveButtonSelectors) {
+      saveButton = document.querySelector(selector);
+      if (saveButton) break;
+    }
 
     if (applyButton && saveButton) {
       // Find common ancestor that contains both buttons
+      // First check if they're already in the same display-flex container
       let applyParent = applyButton.parentElement;
+      let saveParent = saveButton.parentElement;
+
+      // Check if they share the same direct parent
+      if (
+        applyParent === saveParent &&
+        applyParent?.classList.contains("display-flex")
+      ) {
+        return applyParent as HTMLElement;
+      }
 
       // Look for common parent that has display-flex class
+      // Note: .jobs-s-apply might be a wrapper div, so traverse up
       while (applyParent) {
         if (applyParent.classList.contains("display-flex")) {
-          // Check if this container also has the save button
+          // Check if this container also has the save button (or its wrapper)
           if (applyParent.contains(saveButton)) {
+            return applyParent as HTMLElement;
+          }
+          // Also check if it contains .jobs-save-button anywhere
+          if (applyParent.querySelector(".jobs-save-button")) {
             return applyParent as HTMLElement;
           }
         }
         applyParent = applyParent.parentElement;
+      }
+
+      // Also try from save button's perspective
+      while (saveParent) {
+        if (saveParent.classList.contains("display-flex")) {
+          if (saveParent.contains(applyButton)) {
+            return saveParent as HTMLElement;
+          }
+          // Also check if it contains .jobs-s-apply or .jobs-apply-button anywhere
+          if (
+            saveParent.querySelector(".jobs-s-apply") ||
+            saveParent.querySelector(".jobs-apply-button")
+          ) {
+            return saveParent as HTMLElement;
+          }
+        }
+        saveParent = saveParent.parentElement;
       }
 
       // If not found, try finding the mt4 container that contains both
@@ -73,42 +129,86 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
       }
     }
 
-    // Strategy 2: Look for the mt4 container that holds the buttons
-    const containers = document.querySelectorAll(".mt4 > div.display-flex");
+    // Strategy 2: Look for display-flex containers (with or without mt4 parent)
+    // Try both mt4 > div.display-flex and direct div.display-flex
+    const containerSelectors = [
+      ".mt4 > div.display-flex",
+      "div.display-flex", // Direct display-flex containers
+    ];
 
-    for (const container of containers) {
-      const hasApply = container.querySelector(".jobs-s-apply");
-      const hasSave = container.querySelector(".jobs-save-button");
-      // Only return if BOTH buttons are direct children or descendants
-      if (hasApply && hasSave) {
-        return container as HTMLElement;
+    for (const containerSelector of containerSelectors) {
+      const containers = document.querySelectorAll(containerSelector);
+
+      for (const container of containers) {
+        // Try multiple selectors for buttons
+        const hasApply =
+          container.querySelector(".jobs-s-apply") ||
+          container.querySelector(".jobs-apply-button") ||
+          container.querySelector("button[data-control-name='job_apply']") ||
+          container.querySelector("a[data-control-name='job_apply']") ||
+          container.querySelector('button[aria-label*="Apply"]');
+        const hasSave =
+          container.querySelector(".jobs-save-button") ||
+          container.querySelector("button[data-control-name='save_job']") ||
+          container.querySelector('button[aria-label*="Save"]');
+        // Only return if BOTH buttons are direct children or descendants
+        if (hasApply && hasSave) {
+          return container as HTMLElement;
+        }
       }
     }
 
     // Strategy 3: Search more broadly but still verify buttons exist
     const selectors = [
       ".job-details-jobs-unified-top-card__container--two-pane .mt4 > div.display-flex",
+      ".job-details-jobs-unified-top-card__container--single-pane .mt4 > div.display-flex",
       ".jobs-details__main-content .mt4 > div.display-flex",
+      ".jobs-details__main-content--single-pane .mt4 > div.display-flex",
       ".jobs-search__job-details--container .mt4 > div.display-flex",
       ".jobs-details__main-content .mt4",
+      ".jobs-details__main-content--single-pane .mt4",
       ".jobs-search__job-details--container .mt4",
+      ".job-details-jobs-unified-top-card__container--two-pane .mt4",
+      ".job-details-jobs-unified-top-card__container--single-pane .mt4",
+      ".jobs-unified-top-card__container .mt4 > div.display-flex",
+      ".jobs-unified-top-card__container .mt4",
+      "div.mt4 > div.display-flex:has(.jobs-s-apply)",
+      "div.mt4:has(.jobs-s-apply):has(.jobs-save-button)",
     ];
 
     for (const selector of selectors) {
       const container = document.querySelector(selector) as HTMLElement | null;
-      if (
-        container &&
-        container.querySelector(".jobs-s-apply") &&
-        container.querySelector(".jobs-save-button")
-      ) {
+      if (!container) continue;
+
+      // Try multiple selectors for buttons
+      const hasApply =
+        container.querySelector(".jobs-s-apply") ||
+        container.querySelector(".jobs-apply-button") ||
+        container.querySelector("button[data-control-name='job_apply']") ||
+        container.querySelector("a[data-control-name='job_apply']") ||
+        container.querySelector('button[aria-label*="Apply"]');
+      const hasSave =
+        container.querySelector(".jobs-save-button") ||
+        container.querySelector("button[data-control-name='save_job']") ||
+        container.querySelector('button[aria-label*="Save"]');
+
+      if (hasApply && hasSave) {
         // If we found mt4, try to find the display-flex child
         const flexChild = container.querySelector("div.display-flex");
-        if (
-          flexChild &&
-          flexChild.querySelector(".jobs-s-apply") &&
-          flexChild.querySelector(".jobs-save-button")
-        ) {
-          return flexChild as HTMLElement;
+        if (flexChild) {
+          const flexHasApply =
+            flexChild.querySelector(".jobs-s-apply") ||
+            flexChild.querySelector(".jobs-apply-button") ||
+            flexChild.querySelector("button[data-control-name='job_apply']") ||
+            flexChild.querySelector("a[data-control-name='job_apply']") ||
+            flexChild.querySelector('button[aria-label*="Apply"]');
+          const flexHasSave =
+            flexChild.querySelector(".jobs-save-button") ||
+            flexChild.querySelector("button[data-control-name='save_job']") ||
+            flexChild.querySelector('button[aria-label*="Save"]');
+          if (flexHasApply && flexHasSave) {
+            return flexChild as HTMLElement;
+          }
         }
         return container;
       }

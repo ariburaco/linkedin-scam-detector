@@ -24,17 +24,28 @@ export const SELECTORS = {
 
   // Job title selectors
   jobTitle: [
-    ".job-details-jobs-unified-top-card__job-title",
-    ".job-search-card__title",
-    "h2.job-title",
-    "a[data-control-name='job_search_job_title']",
+    "h1.job-details-jobs-unified-top-card__job-title a", // H1 with link variant
+    ".job-details-jobs-unified-top-card__job-title h1", // Container with h1 inside
+    ".job-details-jobs-unified-top-card__job-title", // Base selector
+    "h1.top-card-layout__title", // Alternative LinkedIn structure
+    ".jobs-details-top-card__job-title", // Older structure
+    ".job-search-card__title", // Search results
+    "h2.job-title", // Generic h2
+    "a[data-control-name='job_search_job_title']", // Data attribute selector
   ],
 
   // Company name selectors
   companyName: [
-    ".job-details-jobs-unified-top-card__company-name",
-    ".job-search-card__subtitle",
-    "a[data-control-name='job_search_company_name']",
+    "a.job-details-jobs-unified-top-card__company-name", // Link variant
+    ".job-details-jobs-unified-top-card__company-name a", // Container with link inside
+    ".job-details-jobs-unified-top-card__company-name", // Base selector
+    ".topcard__org-name-link", // Alternative LinkedIn structure
+    ".top-card-layout__second-subline a", // Another alternative
+    ".jobs-details-top-card__company-name", // Older structure
+    ".job-search-card__subtitle", // Search results
+    "a[data-control-name='job_search_company_name']", // Data attribute selector
+    ".artdeco-entity-lockup__subtitle a", // Entity lockup variant
+    ".artdeco-entity-lockup__subtitle span", // Entity lockup span variant
   ],
 
   // Job description selectors
@@ -46,6 +57,13 @@ export const SELECTORS = {
     ".jobs-description__text", // Alternative class
     ".job-search-card__description", // For search results cards
     "[data-job-id] .jobs-box__html-content", // Fallback with data attribute
+    ".jobs-description__text--stretch", // Stretch variant alternative
+    ".jobs-details__main-content .jobs-box__html-content", // Main content area
+    ".jobs-details__main-content--single-pane .jobs-box__html-content", // Single pane variant
+    ".jobs-details__job-description", // Alternative description container
+    ".jobs-details__job-description__text", // Text variant
+    "div[data-job-id] .jobs-box__html-content", // Div with data attribute
+    "section.jobs-box__html-content", // Section variant
   ],
 
   // Job URL selector (usually from the link)
@@ -65,9 +83,12 @@ export const SELECTORS = {
   // Location information
   location: [
     ".job-details-jobs-unified-top-card__tertiary-description-container span.tvm__text--low-emphasis", // New structure - first span in tertiary container
-    ".job-details-jobs-unified-top-card__primary-description",
-    ".job-search-card__location",
-    "[data-test-id='job-location']",
+    ".job-details-jobs-unified-top-card__primary-description", // Primary description container
+    ".job-details-jobs-unified-top-card__primary-description-without-tagline", // Without tagline variant
+    ".job-search-card__location", // Search results
+    "[data-test-id='job-location']", // Data attribute selector
+    ".job-card-container__metadata-wrapper li", // Metadata wrapper variant
+    ".jobs-unified-top-card__primary-description", // Unified top card variant
   ],
 } as const;
 
