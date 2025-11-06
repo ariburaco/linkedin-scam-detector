@@ -25,4 +25,3 @@ export const discoveredJobsCache = new ProcessedItemsCache<string>(
 export function getJobId(job: { linkedinJobId: string }): string {
   return job.linkedinJobId;
 }
-

@@ -61,7 +61,8 @@ const handler: PlasmoMessaging.MessageHandler<
     let unprocessedJobs = uniqueJobs;
     try {
       const jobIds = uniqueJobs.map(getJobId);
-      const unprocessedJobIds = await discoveredJobsCache.filterProcessed(jobIds);
+      const unprocessedJobIds =
+        await discoveredJobsCache.filterProcessed(jobIds);
       unprocessedJobs = uniqueJobs.filter((job) =>
         unprocessedJobIds.includes(job.linkedinJobId)
       );
