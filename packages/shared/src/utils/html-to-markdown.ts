@@ -14,100 +14,303 @@ export function cleanLinkedInHtml(html: string): string {
 
   // For browser environments, use DOM API
   if (typeof window !== "undefined" && window.DOMParser) {
+    // Pre-clean: Remove Angular comment markers and normalize HTML
+    const preCleaned = html
+      // Remove Angular comment markers (<!---->)
+      .replace(/<!---->/g, "")
+      // Remove empty span wrappers that just contain whitespace
+      .replace(/<span>\s*<\/span>/g, "")
+      // Normalize whitespace in HTML
+      .replace(/\s+/g, " ")
+      .trim();
+
     const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
-    const body = doc.body;
-
-    // Remove show more/less buttons by class name
-    const buttons = body.querySelectorAll(
-      '.show-more-less-html__button, [class*="show-more-less-html__button"]'
-    );
-    buttons.forEach((btn: Element) => btn.remove());
-
-    // Remove any elements containing "Show more" or "Show less" text (case-insensitive, language-agnostic)
-    const allElements = body.querySelectorAll("*");
-    allElements.forEach((el: Element) => {
-      const text = el.textContent?.trim().toLowerCase() || "";
-      if (
-        text === "show more" ||
-        text === "show less" ||
-        text === "show more show less" ||
-        text.includes("show more") ||
-        text.includes("show less") ||
-        text.includes("daha fazla") || // Turkish
-        text.includes("daha az") || // Turkish
-        text.includes("mehr anzeigen") || // German
-        text.includes("weniger anzeigen") || // German
-        text.includes("voir plus") || // French
-        text.includes("voir moins") // French
-      ) {
-        // Remove if it's a button, span, or if the entire text content matches the pattern
-        if (
-          el.tagName === "BUTTON" ||
-          el.tagName === "SPAN" ||
-          el.classList.contains("show-more-less-html__button") ||
-          text === "show more" ||
-          text === "show less" ||
-          text === "show more show less"
-        ) {
-          el.remove();
-        }
-      }
-    });
-
-    // Also remove text nodes that contain "Show more" / "Show less" patterns
-    const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
-    let node: globalThis.Node | null;
-    const nodesToRemove: globalThis.Node[] = [];
-    while ((node = walker.nextNode())) {
-      const text = node.textContent?.trim().toLowerCase() || "";
-      if (
-        text === "show more" ||
-        text === "show less" ||
-        text === "show more show less" ||
-        text.includes("show more show less")
-      ) {
-        nodesToRemove.push(node);
+    let doc: Document;
+    try {
+      doc = parser.parseFromString(preCleaned, "text/html");
+    } catch (error) {
+      // If parsing fails, try with a wrapper div
+      console.debug(
+        "[HTML Cleaner] Initial parse failed, trying with wrapper:",
+        error
+      );
+      try {
+        doc = parser.parseFromString(`<div>${preCleaned}</div>`, "text/html");
+      } catch (fallbackError) {
+        // Last resort: return cleaned HTML string
+        console.error("[HTML Cleaner] Failed to parse HTML:", fallbackError);
+        return preCleaned;
       }
     }
-    nodesToRemove.forEach((n) => {
-      if (n.parentNode) {
-        n.parentNode.removeChild(n);
+    const body = doc.body;
+    if (!body) {
+      console.error("[HTML Cleaner] No body element found in parsed document");
+      return preCleaned;
+    }
+
+    // Wrap all DOM manipulation in a try-catch to handle DOMExceptions
+    try {
+      // Remove show more/less buttons by class name
+      try {
+        const buttons = body.querySelectorAll(
+          '.show-more-less-html__button, [class*="show-more-less-html__button"]'
+        );
+        buttons.forEach((btn: Element) => {
+          try {
+            btn.remove();
+          } catch (e) {
+            // Ignore individual removal errors
+            console.debug("[HTML Cleaner] Failed to remove button:", e);
+          }
+        });
+      } catch (error) {
+        console.debug("[HTML Cleaner] Failed to remove buttons:", error);
       }
-    });
 
-    // Strip class attributes from all elements
-    const allElementsWithClasses = body.querySelectorAll("[class]");
-    allElementsWithClasses.forEach((el: Element) => {
-      el.removeAttribute("class");
-    });
+      // Remove any elements containing "Show more" or "Show less" text (case-insensitive, language-agnostic)
+      try {
+        const allElements = body.querySelectorAll("*");
+        allElements.forEach((el: Element) => {
+          try {
+            const text = el.textContent?.trim().toLowerCase() || "";
+            if (
+              text === "show more" ||
+              text === "show less" ||
+              text === "show more show less" ||
+              text.includes("show more") ||
+              text.includes("show less") ||
+              text.includes("daha fazla") || // Turkish
+              text.includes("daha az") || // Turkish
+              text.includes("mehr anzeigen") || // German
+              text.includes("weniger anzeigen") || // German
+              text.includes("voir plus") || // French
+              text.includes("voir moins") // French
+            ) {
+              // Remove if it's a button, span, or if the entire text content matches the pattern
+              if (
+                el.tagName === "BUTTON" ||
+                el.tagName === "SPAN" ||
+                el.classList.contains("show-more-less-html__button") ||
+                text === "show more" ||
+                text === "show less" ||
+                text === "show more show less"
+              ) {
+                el.remove();
+              }
+            }
+          } catch (e) {
+            // Ignore individual element processing errors
+            console.debug("[HTML Cleaner] Failed to process element:", e);
+          }
+        });
+      } catch (error) {
+        console.debug(
+          "[HTML Cleaner] Failed to remove show more/less elements:",
+          error
+        );
+      }
 
-    // Strip data-* attributes
-    const allElementsWithData = body.querySelectorAll("[data-*]");
-    allElementsWithData.forEach((el: Element) => {
-      Array.from(el.attributes).forEach((attr: Attr) => {
-        if (attr.name.startsWith("data-")) {
-          el.removeAttribute(attr.name);
+      // Also remove text nodes that contain "Show more" / "Show less" patterns
+      try {
+        const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
+        let node: globalThis.Node | null;
+        const nodesToRemove: globalThis.Node[] = [];
+        while ((node = walker.nextNode())) {
+          try {
+            const text = node.textContent?.trim().toLowerCase() || "";
+            if (
+              text === "show more" ||
+              text === "show less" ||
+              text === "show more show less" ||
+              text.includes("show more show less")
+            ) {
+              nodesToRemove.push(node);
+            }
+          } catch (e) {
+            // Ignore individual node processing errors
+            console.debug("[HTML Cleaner] Failed to process text node:", e);
+          }
         }
-      });
-    });
-
-    // Remove empty elements
-    const emptyElements = body.querySelectorAll("*");
-    emptyElements.forEach((el: Element) => {
-      if (
-        el.children.length === 0 &&
-        (!el.textContent || el.textContent.trim() === "")
-      ) {
-        el.remove();
+        nodesToRemove.forEach((n) => {
+          try {
+            if (n.parentNode) {
+              n.parentNode.removeChild(n);
+            }
+          } catch (e) {
+            // Ignore individual removal errors
+            console.debug("[HTML Cleaner] Failed to remove text node:", e);
+          }
+        });
+      } catch (error) {
+        console.debug("[HTML Cleaner] Failed to remove text nodes:", error);
       }
-    });
 
-    return body.innerHTML;
+      // Strip class attributes from all elements
+      try {
+        const allElementsWithClasses = body.querySelectorAll("[class]");
+        allElementsWithClasses.forEach((el: Element) => {
+          try {
+            el.removeAttribute("class");
+          } catch (e) {
+            // Ignore individual attribute removal errors
+            console.debug(
+              "[HTML Cleaner] Failed to remove class attribute:",
+              e
+            );
+          }
+        });
+      } catch (error) {
+        console.debug(
+          "[HTML Cleaner] Failed to strip class attributes:",
+          error
+        );
+      }
+
+      // Strip data-* attributes
+      // Note: CSS selector [data-*] is invalid, so we need to iterate all elements
+      try {
+        const allElements = body.querySelectorAll("*");
+        allElements.forEach((el: Element) => {
+          try {
+            // Get all attributes and filter for data-* ones
+            const attrsToRemove: string[] = [];
+            Array.from(el.attributes).forEach((attr: Attr) => {
+              if (attr.name.startsWith("data-")) {
+                attrsToRemove.push(attr.name);
+              }
+            });
+            // Remove data attributes
+            attrsToRemove.forEach((attrName) => {
+              try {
+                el.removeAttribute(attrName);
+              } catch (e) {
+                // Ignore individual attribute removal errors
+                console.debug(
+                  "[HTML Cleaner] Failed to remove data attribute:",
+                  e
+                );
+              }
+            });
+          } catch (e) {
+            // Ignore element processing errors
+            console.debug(
+              "[HTML Cleaner] Failed to process element attributes:",
+              e
+            );
+          }
+        });
+      } catch (error) {
+        console.debug("[HTML Cleaner] Failed to strip data attributes:", error);
+      }
+
+      // Remove empty elements
+      try {
+        const emptyElements = body.querySelectorAll("*");
+        emptyElements.forEach((el: Element) => {
+          try {
+            if (
+              el.children.length === 0 &&
+              (!el.textContent || el.textContent.trim() === "")
+            ) {
+              el.remove();
+            }
+          } catch (e) {
+            // Ignore individual removal errors
+            console.debug("[HTML Cleaner] Failed to remove empty element:", e);
+          }
+        });
+      } catch (error) {
+        console.debug("[HTML Cleaner] Failed to remove empty elements:", error);
+      }
+
+      // Flatten nested span/p structures (LinkedIn often wraps content in unnecessary spans)
+      // Example: <span><p>text</p></span> -> <p>text</p>
+      try {
+        const nestedSpans = body.querySelectorAll(
+          "span > p, span > ul, span > ol"
+        );
+        nestedSpans.forEach((child: Element) => {
+          try {
+            const parent = child.parentElement;
+            if (
+              parent &&
+              parent.tagName === "SPAN" &&
+              parent.children.length === 1
+            ) {
+              // If span only contains this child, unwrap it
+              const grandparent = parent.parentElement;
+              if (grandparent) {
+                grandparent.insertBefore(child, parent);
+                parent.remove();
+              }
+            }
+          } catch (e) {
+            // Ignore individual unwrapping errors
+            console.debug("[HTML Cleaner] Failed to unwrap nested span:", e);
+          }
+        });
+      } catch (error) {
+        console.debug(
+          "[HTML Cleaner] Failed to flatten nested structures:",
+          error
+        );
+      }
+
+      // Remove remaining empty spans (manually check since :has() may not be supported)
+      try {
+        const allSpans = body.querySelectorAll("span");
+        allSpans.forEach((span: Element) => {
+          try {
+            // Check if span is truly empty (no children and no meaningful text)
+            if (
+              span.children.length === 0 &&
+              (!span.textContent || span.textContent.trim() === "")
+            ) {
+              span.remove();
+            }
+          } catch (e) {
+            // Ignore individual removal errors
+            console.debug("[HTML Cleaner] Failed to remove empty span:", e);
+          }
+        });
+      } catch (error) {
+        console.debug("[HTML Cleaner] Failed to remove empty spans:", error);
+      }
+
+      // Final step: return cleaned HTML
+      try {
+        return body.innerHTML;
+      } catch (error) {
+        console.error("[HTML Cleaner] Failed to get innerHTML:", error);
+        // Fallback: return text content
+        return body.textContent || "";
+      }
+    } catch (domError) {
+      // If any DOM manipulation fails, return pre-cleaned HTML
+      // This preserves Angular comment removal and basic cleaning
+      console.error(
+        "[HTML Cleaner] DOM manipulation failed, returning pre-cleaned HTML:",
+        {
+          error: domError,
+          errorMessage:
+            domError instanceof Error ? domError.message : String(domError),
+          errorName:
+            domError instanceof Error ? domError.name : typeof domError,
+        }
+      );
+      return preCleaned;
+    }
   }
 
   // For Node.js environments, use regex-based cleaning (less precise but works)
   let cleaned = html;
+
+  // Remove Angular comment markers (<!---->)
+  cleaned = cleaned.replace(/<!---->/g, "");
+
+  // Remove empty span wrappers
+  cleaned = cleaned.replace(/<span>\s*<\/span>/g, "");
+  cleaned = cleaned.replace(/<span[^>]*>\s*<\/span>/g, "");
 
   // Remove show more/less buttons (regex pattern for common structures)
   cleaned = cleaned.replace(
@@ -142,18 +345,32 @@ export function convertHtmlToMarkdown(html: string): string {
   if (!html) return "";
 
   // Clean the HTML first
-  const cleanedHtml = cleanLinkedInHtml(html);
+  let cleanedHtml: string;
+  try {
+    cleanedHtml = cleanLinkedInHtml(html);
+  } catch (error) {
+    console.error("[HTML to Markdown] Failed to clean HTML:", error);
+    // Fallback: strip HTML tags and return plain text
+    return html.replace(/<[^>]*>/g, "").trim();
+  }
 
   // Initialize Turndown service with custom options
-  const turndownService = new TurndownService({
-    headingStyle: "atx", // Use # for headings
-    codeBlockStyle: "fenced", // Use ``` for code blocks
-    bulletListMarker: "-", // Use - for bullet lists
-    emDelimiter: "*", // Use * for emphasis
-    strongDelimiter: "**", // Use ** for strong
-    linkStyle: "inlined", // Use inline links [text](url)
-    linkReferenceStyle: "full", // Use full reference links
-  });
+  let turndownService: TurndownService;
+  try {
+    turndownService = new TurndownService({
+      headingStyle: "atx", // Use # for headings
+      codeBlockStyle: "fenced", // Use ``` for code blocks
+      bulletListMarker: "-", // Use - for bullet lists
+      emDelimiter: "*", // Use * for emphasis
+      strongDelimiter: "**", // Use ** for strong
+      linkStyle: "inlined", // Use inline links [text](url)
+      linkReferenceStyle: "full", // Use full reference links
+    });
+  } catch (error) {
+    console.error("[HTML to Markdown] Failed to initialize Turndown:", error);
+    // Fallback: strip HTML tags and return plain text
+    return cleanedHtml.replace(/<[^>]*>/g, "").trim();
+  }
 
   // Add custom rules for better LinkedIn HTML handling
   // Handle <br> tags - convert to double newlines for proper paragraph breaks
@@ -181,8 +398,15 @@ export function convertHtmlToMarkdown(html: string): string {
     },
   });
 
-  // Convert HTML to Markdown
-  let markdown = turndownService.turndown(cleanedHtml);
+  // Convert HTML to Markdown with error handling
+  let markdown: string;
+  try {
+    markdown = turndownService.turndown(cleanedHtml);
+  } catch (error) {
+    console.error("[HTML to Markdown] Turndown conversion failed:", error);
+    // Fallback: strip HTML tags and return plain text
+    return cleanedHtml.replace(/<[^>]*>/g, "").trim();
+  }
 
   // Post-process cleanup and formatting improvements
   // Remove "Show more" / "Show less" text patterns (case-insensitive, language-agnostic)

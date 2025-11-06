@@ -3,6 +3,8 @@ import { convertHtmlToMarkdown } from "@acme/shared/utils";
 import { findElement, SELECTORS } from "./selectors";
 import type { DiscoveredJobData, JobData } from "./types";
 
+import { extensionLoggerContent } from "@/shared/loggers";
+
 /**
  * Extract LinkedIn job ID from URL
  * Supports multiple URL formats:
@@ -31,13 +33,33 @@ function extractLinkedInJobId(url: string): string | undefined {
     }
 
     // Format 3: Query parameter format (collections, search, etc.)
-    const urlObj = new URL(url);
+    // Handle both absolute and relative URLs
+    let urlObj: URL;
+    try {
+      urlObj = new URL(url);
+    } catch {
+      // If URL is relative, try with window.location.origin
+      try {
+        urlObj = new URL(url, window.location.origin);
+      } catch {
+        // If still fails, try parsing manually
+        const match = url.match(/[?&]currentJobId=(\d+)/);
+        if (match?.[1]) {
+          return match[1];
+        }
+        return undefined;
+      }
+    }
     const currentJobId = urlObj.searchParams.get("currentJobId");
     if (currentJobId) {
       return currentJobId;
     }
-  } catch {
+  } catch (error) {
     // Invalid URL format, continue to return undefined
+    extensionLoggerContent.debug(
+      "[LinkedIn Scam Detector] Failed to extract job ID from URL:",
+      error
+    );
   }
 
   return undefined;
@@ -131,12 +153,36 @@ export function extractJobDataFromCard(
       cardElement,
       SELECTORS.jobDescription
     );
-    const descriptionHtml = descriptionElement?.innerHTML?.trim() || "";
 
-    // Convert HTML to Markdown
-    const description = descriptionHtml
-      ? convertHtmlToMarkdown(descriptionHtml)
-      : "";
+    // Safely extract HTML - ensure element is HTMLElement and has innerHTML property
+    let descriptionHtml = "";
+    if (descriptionElement && descriptionElement instanceof HTMLElement) {
+      try {
+        descriptionHtml = descriptionElement.innerHTML?.trim() || "";
+      } catch (error) {
+        // Fallback to textContent if innerHTML access fails
+        extensionLoggerContent.debug(
+          "[LinkedIn Scam Detector] innerHTML access failed, using textContent:",
+          error
+        );
+        descriptionHtml = descriptionElement.textContent?.trim() || "";
+      }
+    }
+
+    // Convert HTML to Markdown with error handling
+    let description = "";
+    if (descriptionHtml) {
+      try {
+        description = convertHtmlToMarkdown(descriptionHtml);
+      } catch (error) {
+        extensionLoggerContent.error(
+          "[LinkedIn Scam Detector] Failed to convert HTML to Markdown:",
+          error
+        );
+        // Fallback to plain text if conversion fails
+        description = descriptionHtml.replace(/<[^>]*>/g, "").trim();
+      }
+    }
 
     // Extract salary if available
     const salaryElement = findElement(cardElement, SELECTORS.salary);
@@ -164,7 +210,16 @@ export function extractJobDataFromCard(
       linkedinJobId,
     };
   } catch (error) {
-    console.error("[LinkedIn Scam Detector] Error extracting job data:", error);
+    extensionLoggerContent.error(
+      "[LinkedIn Scam Detector] Error extracting job data from card:",
+      {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : typeof error,
+        stack: error instanceof Error ? error.stack : undefined,
+        url: window.location.href,
+      }
+    );
     return null;
   }
 }
@@ -188,12 +243,36 @@ export function extractJobDataFromPage(): JobData | null {
 
     // Extract full job description as HTML
     const descriptionElement = findElement(document, SELECTORS.jobDescription);
-    const descriptionHtml = descriptionElement?.innerHTML?.trim() || "";
 
-    // Convert HTML to Markdown
-    const description = descriptionHtml
-      ? convertHtmlToMarkdown(descriptionHtml)
-      : "";
+    // Safely extract HTML - ensure element is HTMLElement and has innerHTML property
+    let descriptionHtml = "";
+    if (descriptionElement && descriptionElement instanceof HTMLElement) {
+      try {
+        descriptionHtml = descriptionElement.innerHTML?.trim() || "";
+      } catch (error) {
+        // Fallback to textContent if innerHTML access fails
+        extensionLoggerContent.debug(
+          "[LinkedIn Scam Detector] innerHTML access failed, using textContent:",
+          error
+        );
+        descriptionHtml = descriptionElement.textContent?.trim() || "";
+      }
+    }
+
+    // Convert HTML to Markdown with error handling
+    let description = "";
+    if (descriptionHtml) {
+      try {
+        description = convertHtmlToMarkdown(descriptionHtml);
+      } catch (error) {
+        extensionLoggerContent.error(
+          "[LinkedIn Scam Detector] Failed to convert HTML to Markdown:",
+          error
+        );
+        // Fallback to plain text if conversion fails
+        description = descriptionHtml.replace(/<[^>]*>/g, "").trim();
+      }
+    }
 
     // Use current URL
     const url = window.location.href;
@@ -227,7 +306,16 @@ export function extractJobDataFromPage(): JobData | null {
       linkedinJobId,
     };
   } catch (error) {
-    console.error("[LinkedIn Scam Detector] Error extracting job data:", error);
+    extensionLoggerContent.error(
+      "[LinkedIn Scam Detector] Error extracting job data from page:",
+      {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : typeof error,
+        stack: error instanceof Error ? error.stack : undefined,
+        url: window.location.href,
+      }
+    );
     return null;
   }
 }
@@ -241,15 +329,6 @@ export function isJobSearchPage(): boolean {
     pathname.includes("/jobs/search") ||
     pathname.includes("/jobs/collections") ||
     (pathname === "/jobs/search/" && window.location.search.length > 0);
-
-  // Debug logging
-  if (process.env.NODE_ENV === "development") {
-    console.log("[isJobSearchPage] Checking:", {
-      pathname,
-      search: window.location.search,
-      isSearchPage,
-    });
-  }
 
   return isSearchPage;
 }
@@ -452,7 +531,16 @@ export function extractJobCardFromElement(
       discoveryUrl: window.location.href,
     };
   } catch (error) {
-    console.error("[LinkedIn Scam Detector] Error extracting job card:", error);
+    extensionLoggerContent.error(
+      "[LinkedIn Scam Detector] Error extracting job card:",
+      {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : typeof error,
+        stack: error instanceof Error ? error.stack : undefined,
+        url: window.location.href,
+      }
+    );
     return null;
   }
 }
